@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+taichu_venv/
+
+# Rust / Tauri
+*/target/
+clients/tauri/tauri-ui/src-tauri/target/
+
+# Runtime data
+storage/vector/chroma/
+storage/snapshots/
+logs/
+ingest/raw/
+ingest/inbox/
+ingest/processed/
+ingest/failed/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large binaries
+*.sqlite3
+*.so
+*.dylib
+vis-network.min.js

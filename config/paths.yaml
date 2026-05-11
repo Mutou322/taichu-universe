@@ -1,0 +1,62 @@
+# 太初知识宇宙 — 统一路径配置
+# 所有脚本/Agent/Client 都通过此文件读取路径，不得硬编码
+
+root: ~/taichu
+
+ingest:
+  raw: ~/taichu/ingest/raw
+  inbox: ~/taichu/ingest/inbox
+  processed: ~/taichu/ingest/processed
+  failed: ~/taichu/ingest/failed
+  pipelines: ~/taichu/ingest/pipelines
+
+knowledge:
+  wiki: ~/taichu/knowledge/wiki
+  graph: ~/taichu/knowledge/graph
+  ontology: ~/taichu/knowledge/ontology
+  clusters: ~/taichu/knowledge/clusters
+  timelines: ~/taichu/knowledge/timelines
+  relations: ~/taichu/knowledge/relations
+
+storage:
+  vector: ~/taichu/storage/vector
+  chroma: ~/taichu/storage/vector/chroma
+  embeddings: ~/taichu/storage/embeddings
+  cache: ~/taichu/storage/cache
+  snapshots: ~/taichu/storage/snapshots
+  indexes: ~/taichu/storage/indexes
+
+runtime:
+  memory: ~/taichu/runtime/memory
+  semantic: ~/taichu/runtime/semantic
+  graph: ~/taichu/runtime/graph
+  agents: ~/taichu/runtime/agents
+  events: ~/taichu/runtime/events
+  scheduler: ~/taichu/runtime/scheduler
+  solver: ~/taichu/runtime/solver
+  runtime_core: ~/taichu/runtime/runtime_core
+
+protocols:
+  memory: ~/taichu/protocols/memory
+  graph: ~/taichu/protocols/graph
+  websocket: ~/taichu/protocols/websocket
+  agent: ~/taichu/protocols/agent
+  mcp: ~/taichu/protocols/mcp
+
+interfaces:
+  cli: ~/taichu/interfaces/cli
+  websocket: ~/taichu/interfaces/websocket
+  rest: ~/taichu/interfaces/rest
+  gateway: ~/taichu/interfaces/gateway
+
+clients:
+  tauri: ~/taichu/clients/tauri
+  web: ~/taichu/clients/web
+  mobile: ~/taichu/clients/mobile
+  terminal: ~/taichu/clients/terminal
+
+tools: ~/taichu/tools
+logs:
+  root: ~/taichu/logs
+config: ~/taichu/config
+docs: ~/taichu/docs
