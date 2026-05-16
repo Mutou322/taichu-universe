@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>太初星云 · 神经突触航道</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+  #info { position: absolute; top: 20px; left: 20px; color: #888; z-index: 10; }
+  #tooltip { position: absolute; display: none; background: rgba(10,10,30,0.95); border: 1px solid #2a82e4; border-radius: 8px; padding: 12px; max-width: 300px; z-index: 20; color: #e0e0e0; pointer-events: none; }
+  .btn { position: absolute; bottom: 20px; right: 20px; z-index: 10; background: #2a82e4; border: none; color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
+  .legend { position: absolute; bottom: 20px; left: 20px; color: #888; z-index: 10; font-size: 0.8em; }
+</style>
+</head>
+<body>
+<div id="info">🌌 太初星云 · 知识突触航道</div>
+<div id="tooltip"></div>
+<button class="btn" onclick="location.reload()">⟳ 刷新</button>
+<div class="legend">🟠 核心概念 &nbsp; 🔵 一般概念 &nbsp; ⚪ 参考节点 &nbsp; ━ 突触航道（越亮连接越强）</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+// ── 配置 ──
+const API_BASE = 'http://127.0.0.1:8765';
+
+// ── 获取知识图谱数据 ──
+async function fetchGraph() {
+  const resp = await fetch(API_BASE + '/api/kb/graph?limit=400');
+  const data = await resp.json();
+  // 从 node.links 推导 edges
+  const linkMap = {};
+  const edges = [];
+  (data.nodes || []).forEach(function(n) {
+    (n.links || []).forEach(function(target) {
+      var key = n.id < target ? n.id + '|||' + target : target + '|||' + n.id;
+      if (!linkMap[key]) { linkMap[key] = { from: n.id, to: target, weight: 0 }; edges.push(linkMap[key]); }
+      linkMap[key].weight++;
+    });
+  });
+  data.edges = edges;
+  document.getElementById('info').innerHTML = '🌌 太初星云 · 节点: ' + data.nodes.length + ' · 航道: ' + edges.length;
+  return data;
+}
+
+// ── 场景初始化 ──
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 500);
+camera.position.set(0, 60, 100);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x050816, 1);
+document.body.appendChild(renderer.domElement);
+
+// 轨道控制
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.rotateSpeed = 0.3;
+controls.zoomSpeed = 1.2;
+controls.target.set(0, 0, 0);
+
+// 背景星场
+function addStarfield() {
+  const starsGeo = new THREE.BufferGeometry();
+  const starsCount = 3000;
+  const starsPos = new Float32Array(starsCount * 3);
+  for (var i = 0; i < starsCount * 3; i += 3) {
+    starsPos[i] = (Math.random() - 0.5) * 400;
+    starsPos[i+1] = (Math.random() - 0.5) * 200;
+    starsPos[i+2] = (Math.random() - 0.5) * 400;
+  }
+  starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
+  const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.3 });
+  scene.add(new THREE.Points(starsGeo, starsMat));
+}
+
+// 中心奇点
+function addSingularity() {
+  const glowGeo = new THREE.SphereGeometry(1.5, 32, 32);
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.6 });
+  scene.add(new THREE.Mesh(glowGeo, glowMat));
+
+  const coreGeo = new THREE.SphereGeometry(0.8, 32, 32);
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xff5500 });
+  scene.add(new THREE.Mesh(coreGeo, coreMat));
+
+  const ringGeo = new THREE.RingGeometry(2, 2.5, 64);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xff8800, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = Math.PI / 2;
+  scene.add(ring);
+}
+
+// 光照
+scene.add(new THREE.AmbientLight(0x404060));
+const pointLight = new THREE.PointLight(0xffaa00, 1.2, 0);
+pointLight.position.set(0, 0, 0);
+scene.add(pointLight);
+addStarfield();
+addSingularity();
+
+// ── 神经突触航道 ──
+function createSynapse(start, end, weight) {
+  const direction = new THREE.Vector3().subVectors(end, start);
+  const length = direction.length();
+  const midPoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+
+  const radius = 0.08 + weight * 0.25;
+  const geometry = new THREE.CylinderGeometry(radius, radius, length, 6);
+  const material = new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setHSL(0.6, 0.8, 0.5 + weight * 0.3),
+    emissive: new THREE.Color().setHSL(0.6, 0.6, 0.1),
+    emissiveIntensity: 0.2 + weight * 0.5,
+    roughness: 0.4,
+    transparent: true,
+    opacity: 0.25 + weight * 0.4
+  });
+  const cylinder = new THREE.Mesh(geometry, material);
+  cylinder.position.copy(midPoint);
+  cylinder.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    direction.clone().normalize()
+  );
+  return cylinder;
+}
+
+const planetMeshes = [];
+const synapseMeshes = [];
+
+fetchGraph().then(function(data) {
+  const degree = {};
+  data.edges.forEach(function(e) {
+    degree[e.from] = (degree[e.from] || 0) + 1;
+    degree[e.to] = (degree[e.to] || 0) + 1;
+  });
+
+  const edgeWeightMap = {};
+  data.edges.forEach(function(e) {
+    var key = e.from < e.to ? e.from + '|||' + e.to : e.to + '|||' + e.from;
+    edgeWeightMap[key] = (edgeWeightMap[key] || 0) + 1;
+  });
+
+  const maxDegree = Math.max.apply(null, Object.values(degree), 1);
+  const maxWeight = Math.max.apply(null, Object.values(edgeWeightMap), 1);
+
+  // 螺旋分布节点
+  var positions = {};
+  var idx = 0;
+  data.nodes.forEach(function(node) {
+    var d = degree[node.id] || 0;
+    var radius = 18 + (1 - d / maxDegree) * 35;
+    var angle = (idx / data.nodes.length) * Math.PI * 8;
+    var height = (Math.random() - 0.5) * 22;
+    var x = Math.cos(angle) * radius;
+    var z = Math.sin(angle) * radius;
+    positions[node.id] = new THREE.Vector3(x, height, z);
+    idx++;
+
+    var hue = 0.6 - (d / maxDegree) * 0.4;
+    var color = new THREE.Color().setHSL(hue, 0.8, 0.5 + (d / maxDegree) * 0.2);
+    var size = 0.5 + (d / maxDegree) * 1.8;
+    var geo = new THREE.SphereGeometry(size, 16, 16);
+    var mat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.2 });
+    var planet = new THREE.Mesh(geo, mat);
+    planet.position.copy(positions[node.id]);
+    planet.userData = { id: node.id, label: node.label, summary: node.summary, links: node.links || [] };
+    scene.add(planet);
+    planetMeshes.push(planet);
+  });
+
+  // 创建突触航道
+  Object.keys(edgeWeightMap).forEach(function(key) {
+    var parts = key.split('|||');
+    var fromId = parts[0], toId = parts[1];
+    var start = positions[fromId];
+    var end = positions[toId];
+    if (!start || !end) return;
+    var weight = edgeWeightMap[key] / maxWeight;
+    var synapse = createSynapse(start, end, weight);
+    scene.add(synapse);
+    synapseMeshes.push({ mesh: synapse, from: fromId, to: toId, startPos: start.clone(), endPos: end.clone() });
+  });
+});
+
+// ── 鼠标悬停 ──
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const tooltip = document.getElementById('tooltip');
+window.addEventListener('mousemove', function(event) {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  var intersects = raycaster.intersectObjects(planetMeshes);
+  if (intersects.length > 0) {
+    var obj = intersects[0].object;
+    var data = obj.userData;
+    tooltip.innerHTML = '<strong style="color:#d4af37;">' + data.label + '</strong><br>' +
+      '<span style="font-size:0.8em; color:#ccc;">' + (data.summary || '') + '</span><br>' +
+      '<span style="font-size:0.7em; color:#888;">链接数: ' + data.links.length + '</span>';
+    tooltip.style.display = 'block';
+    tooltip.style.left = (event.clientX + 15) + 'px';
+    tooltip.style.top = (event.clientY - 30) + 'px';
+  } else {
+    tooltip.style.display = 'none';
+  }
+});
+
+// ── 动画循环：差速旋转 + 脉动 ──
+var time = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  time += 0.0008;
+
+  // 差速旋转
+  planetMeshes.forEach(function(planet) {
+    var pos = planet.position;
+    var radius = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+    if (radius < 0.1) return;
+    var angularSpeed = 0.015 / (radius * 0.3 + 0.5);
+    var currentAngle = Math.atan2(pos.z, pos.x);
+    var newAngle = currentAngle + angularSpeed;
+    planet.position.x = Math.cos(newAngle) * radius;
+    planet.position.z = Math.sin(newAngle) * radius;
+  });
+
+  // 更新突触位置
+  synapseMeshes.forEach(function(item) {
+    var fromPlanet = null, toPlanet = null;
+    for (var i = 0; i < planetMeshes.length; i++) {
+      if (planetMeshes[i].userData.id === item.from) fromPlanet = planetMeshes[i];
+      if (planetMeshes[i].userData.id === item.to) toPlanet = planetMeshes[i];
+    }
+    if (!fromPlanet || !toPlanet) return;
+    var start = fromPlanet.position;
+    var end = toPlanet.position;
+    var dir = new THREE.Vector3().subVectors(end, start);
+    var len = dir.length();
+    if (len < 0.5) return;
+    item.mesh.position.copy(new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5));
+    var origLen = item.startPos.distanceTo(item.endPos);
+    item.mesh.scale.set(1, len / origLen, 1);
+    item.mesh.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      dir.clone().normalize()
+    );
+  });
+
+  // 中心光环脉动
+  var ring = scene.children.find(function(c) { return c.geometry && c.geometry.type === 'RingGeometry'; });
+  if (ring) ring.scale.setScalar(1 + Math.sin(time * 25) * 0.08);
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+animate();
+
+window.addEventListener('resize', function() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

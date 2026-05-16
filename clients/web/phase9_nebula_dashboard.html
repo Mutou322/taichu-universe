@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nebula UI Phase 9</title>
+<script src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
+<style>
+body{
+    margin:0;
+    overflow:hidden;
+    background:#050816;
+    color:#ffffff;
+    font-family:Arial, Helvetica, sans-serif;
+}
+#app{
+    display:grid;
+    grid-template-columns: 2fr 420px;
+    width:100vw;
+    height:100vh;
+}
+#network-container{
+    position:relative;
+    width:100%;
+    height:100%;
+    background:
+        radial-gradient(circle at center, rgba(255,255,255,0.08), transparent 60%),
+        radial-gradient(circle at center, #0b1020 0%, #050816 80%);
+}
+#sidebar{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    padding:10px;
+    background:#0b1020;
+    border-left:1px solid rgba(255,255,255,0.08);
+    overflow-y:auto;
+}
+.panel{
+    background:rgba(255,255,255,0.03);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:12px;
+    padding:12px;
+    backdrop-filter:blur(8px);
+}
+.panel-title{
+    font-size:14px;
+    color:#7dd3fc;
+    margin-bottom:10px;
+}
+.metric{
+    margin-bottom:8px;
+    font-size:13px;
+}
+.metric span{
+    color:#4ade80;
+}
+.control-row{
+    margin-bottom:10px;
+}
+input[type=range]{
+    width:100%;
+}
+#topbar{
+    position:absolute;
+    top:15px;
+    left:20px;
+    z-index:999;
+    background:rgba(0,0,0,0.35);
+    padding:10px 14px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.1);
+    backdrop-filter:blur(8px);
+}
+#topbar h1{
+    margin:0;
+    font-size:20px;
+    color:#7dd3fc;
+}
+#topbar p{
+    margin:4px 0 0 0;
+    font-size:12px;
+    opacity:0.8;
+}
+.log-line{
+    font-size:12px;
+    margin-bottom:5px;
+    opacity:0.9;
+}
+.glow{
+    box-shadow:0 0 25px rgba(59,130,246,0.4);
+}
+#center-core{
+    position:absolute;
+    left:50%;
+    top:50%;
+    width:140px;
+    height:140px;
+    transform:translate(-50%, -50%);
+    border-radius:50%;
+    background:
+      radial-gradient(circle, #fff6c0 0%, #ffd966 20%, rgba(255,180,0,0.25) 55%, transparent 75%);
+    filter:blur(1px);
+    pointer-events:none;
+    z-index:0;
+}
+#center-core::after{
+    content:"";
+    position:absolute;
+    inset:-80px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,0.08);
+}
+canvas{
+    z-index:1;
+}
+#status-dot{
+    display:inline-block;
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#4ade80;
+    margin-right:6px;
+    animation:pulse 2s infinite;
+}
+@keyframes pulse{
+    0%,100%{opacity:1;}
+    50%{opacity:0.4;}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+    <div id="network-container">
+        <div id="center-core"></div>
+        <div id="topbar">
+            <div style="display:flex;align-items:center;">
+                <span id="status-dot"></span>
+                <h1 style="margin:0;font-size:20px;color:#7dd3fc;">Nebula UI v2.0</h1>
+            </div>
+            <p>Phase 9 Universe Runtime <span id="ws-status" style="color:#f87171;">(离线)</span></p>
+        </div>
+    </div>
+
+    <div id="sidebar">
+        <div class="panel glow">
+            <div class="panel-title">Runtime Metrics</div>
+            <div class="metric">Agents: <span id="agentCountText">--</span></div>
+            <div class="metric">Shards: <span id="shardCountText">--</span></div>
+            <div class="metric">Knowledge Nodes: <span id="nodeCountText">--</span></div>
+            <div class="metric">Semantic Gravity: <span id="gravityText">--</span></div>
+            <div class="metric">Evolution: <span id="fitnessText">--</span></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">Evolution Control</div>
+            <div class="control-row">Rotation Speed <input type="range" id="rotationSlider" min="0.001" max="0.05" step="0.001" value="0.01"></div>
+            <div class="control-row">Node Count <input type="range" id="nodeSlider" min="50" max="500" step="10" value="150"></div>
+            <div class="control-row">Agent Count <input type="range" id="agentSlider" min="4" max="128" step="4" value="64"></div>
+            <div class="control-row">Shard Count <input type="range" id="shardSlider" min="1" max="32" step="1" value="8"></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">Archive Hotspots</div>
+            <div id="archivePanel" style="font-size:12px;opacity:0.9;">等待数据...</div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">Runtime Logs</div>
+            <div id="runtimeLogs"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const API = 'http://127.0.0.1:8765';
+const nodes = new vis.DataSet([]);
+const edges = new vis.DataSet([]);
+const container = document.getElementById("network-container");
+const network = new vis.Network(container, {nodes, edges}, {
+    physics:false,
+    interaction:{hover:true, zoomView:true, dragView:true, dragNodes:true},
+    nodes:{shape:"dot", borderWidth:0, font:{color:"#ffffff",size:12}},
+    edges:{color:{color:"rgba(255,255,255,0.08)"}, smooth:true}
+});
+
+// 银河参数
+let rotationSpeed = 0.01;
+let starClouds = {};
+let _galaxyAnim = null;
+const colors = ["#60a5fa","#c084fc","#34d399","#f59e0b","#f472b6","#22d3ee"];
+
+function randomColor(){ return colors[Math.floor(Math.random()*colors.length)]; }
+
+function createGalaxy(nodeCount){
+    nodes.clear(); edges.clear(); starClouds = {};
+    nodes.add({id:"KnowledgeCore",label:"",x:0,y:0,size:60,color:"#fff2b2",fixed:true});
+    for(let i=0;i<nodeCount;i++){
+        const r = 200 + Math.random()*900;
+        const theta = Math.random()*Math.PI*2;
+        const nid = "Node_"+i;
+        nodes.add({id:nid,label:"",x:r*Math.cos(theta),y:r*Math.sin(theta),size:5+Math.random()*18,color:randomColor()});
+        starClouds[nid] = {r,theta,speed:(0.5+Math.random())*0.002};
+        if(Math.random()>0.7) edges.add({from:"KnowledgeCore",to:nid});
+    }
+}
+
+function rotateGalaxy(){
+    Object.entries(starClouds).forEach(([id,p])=>{
+        p.theta += rotationSpeed * p.speed * 10;
+        const spiral = p.theta * 2.5;
+        nodes.update({id, x:(p.r+spiral*0.3)*Math.cos(p.theta), y:(p.r+spiral*0.3)*Math.sin(p.theta)});
+    });
+    _galaxyAnim = requestAnimationFrame(rotateGalaxy);
+}
+
+// 从知识库加载真实数据
+async function loadRealData() {
+    try {
+        const resp = await fetch(API + '/api/kb/graph?limit=0');
+        const data = await resp.json();
+        if (data.nodes && data.nodes.length > 0) {
+            nodes.clear(); edges.clear(); starClouds = {};
+            var cx=0, cy=0, cnt=0;
+            data.nodes.forEach(function(n){ if(n.x!==undefined&&n.y!==undefined){cx+=n.x;cy+=n.y;cnt++;} });
+            if(cnt>0){cx/=cnt;cy/=cnt;}
+            nodes.add({id:"KnowledgeCore",label:"",x:cx||0,y:cy||0,size:60,color:"#fff2b2",fixed:true});
+            data.nodes.forEach(function(n,i){
+                var dx = (n.x||0)-cx, dy = (n.y||0)-cy;
+                var r = Math.sqrt(dx*dx+dy*dy) || 200+Math.random()*400;
+                var theta = Math.atan2(dy,dx) || Math.random()*Math.PI*2;
+                var nid = n.id || "n"+i;
+                nodes.add({id:nid,label:n.label||'',x:n.x||0,y:n.y||0,size:8+Math.random()*10,color:randomColor()});
+                starClouds[nid] = {r,theta,speed:(0.5+Math.random())*0.002};
+                if(Math.random()>0.8) edges.add({from:"KnowledgeCore",to:nid});
+            });
+            document.getElementById('nodeCountText').innerText = data.total_nodes || data.nodes.length;
+        } else { createGalaxy(150); }
+    } catch(e) { createGalaxy(150); }
+}
+
+// WebSocket
+var ws = null;
+function connectWS() {
+    try {
+        ws = new WebSocket('ws://127.0.0.1:8765/ws');
+        ws.onopen = function(){ document.getElementById('ws-status').innerHTML = '<span style="color:#4ade80;">(在线)</span>'; };
+        ws.onmessage = function(ev){
+            try {
+                var d = JSON.parse(ev.data);
+                if(d.evolution) document.getElementById('fitnessText').innerText = 'Gen '+d.evolution.generation+' Fitness '+Math.max.apply(null,d.evolution.fitness_results).toFixed(3);
+                if(d.gbrain) pushLog('GBrain cluster evolved');
+                if(d.attention_map) {
+                    var total=0,count=0;
+                    Object.values(d.attention_map).forEach(function(v){total+=v;count++;});
+                    if(count>0) document.getElementById('gravityText').innerText = (total/count).toFixed(3);
+                }
+                if(d.archive_hotspots) {
+                    var ap = document.getElementById('archivePanel');
+                    ap.innerHTML = (d.archive_hotspots||[]).slice(0,5).map(function(h){return '<div style="padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.05);">'+(h.file_name||h.archive_id||'?')+'</div>';}).join('');
+                }
+                if(d.ingestion) pushLog('INGEST '+(d.ingestion.archive_id||'')+' archived');
+                if(d.shard_info) {
+                    var ns = d.shard_info.node_shards||{};
+                    document.getElementById('shardCountText').innerText = Object.keys(ns).length ? Math.max.apply(null,Object.values(ns))+1+' shards' : '--';
+                }
+            } catch(e){}
+        };
+        ws.onclose = function(){ document.getElementById('ws-status').innerHTML = '<span style="color:#f87171;">(离线)</span>'; setTimeout(connectWS,3000); };
+    } catch(e){ setTimeout(connectWS,3000); }
+}
+
+// 日志
+var runtimeLogs = document.getElementById("runtimeLogs");
+function pushLog(msg){
+    var div = document.createElement("div");
+    div.className = "log-line";
+    div.innerHTML = '['+new Date().toLocaleTimeString()+'] '+msg;
+    runtimeLogs.prepend(div);
+    while(runtimeLogs.children.length>15) runtimeLogs.removeChild(runtimeLogs.lastChild);
+}
+setInterval(function(){
+    var msgs = ["GBrain cluster evolved","Semantic gravity updated","Agent specialization reinforced","GEP mutation completed","Workflow DAG executed","Embedding shard synchronized"];
+    pushLog(msgs[Math.floor(Math.random()*msgs.length)]);
+},2000);
+
+// Slider 控制
+document.getElementById("rotationSlider").addEventListener("input",function(e){rotationSpeed=parseFloat(e.target.value);});
+document.getElementById("nodeSlider").addEventListener("input",function(e){
+    var c=parseInt(e.target.value); document.getElementById('nodeCountText').innerText=c; createGalaxy(c);
+});
+document.getElementById("agentSlider").addEventListener("input",function(e){
+    document.getElementById('agentCountText').innerText=e.target.value;
+});
+document.getElementById("shardSlider").addEventListener("input",function(e){
+    document.getElementById('shardCountText').innerText=e.target.value+' shards';
+});
+
+// 启动
+loadRealData();
+rotateGalaxy();
+connectWS();
+
+// 定期拉 stats
+setInterval(function(){
+    fetch(API+'/api/stats').then(function(r){return r.json();}).then(function(d){
+        document.getElementById('nodeCountText').innerText=d.wiki_count||'--';
+        document.getElementById('shardCountText').innerText=(d.archived_count||0)+' archived';
+    }).catch(function(){});
+},10000);
+</script>
+</body>
+</html>

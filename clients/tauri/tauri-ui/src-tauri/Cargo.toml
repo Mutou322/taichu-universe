@@ -1,0 +1,28 @@
+[package]
+name = "taichu-nebula"
+version = "0.1.0"
+edition = "2021"
+description = "Taichu Knowledge Nebula — Tauri desktop UI for knowledge base"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+ureq = { version = "2", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "multipart"] }
+base64 = "0.22"
+regex = "1"
+chrono = "0.4"
+walkdir = "2"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[lib]
+name = "taichu_nebula_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "taichu-nebula"
+path = "src/main.rs"

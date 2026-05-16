@@ -6,11 +6,10 @@
     python3 interfaces/cli/main.py graph-stats
 """
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
-sys.path.insert(0, str(Path.home() / "taichu"))
-
+from config.bootstrap import *
 from runtime.memory.api import memory
 from runtime.semantic.runtime import semantic
 
@@ -23,8 +22,8 @@ def cmd_search(query: str, limit: int = 5):
     print(f"搜索结果 ({len(results)}):")
     for i, r in enumerate(results):
         print(f"  {i+1}. {r['title']} (score: {r['score']:.4f})")
-        if r.get('text'):
-            preview = r['text'][:100]
+        if r.get("text"):
+            preview = r["text"][:100]
             print(f"     {preview}")
 
 

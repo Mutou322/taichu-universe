@@ -1,0 +1,9 @@
+{
+  "identifier": "default",
+  "description": "Allow all IPC commands for taichu-nebula",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default"
+  ]
+}

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nebula UI Adaptive Demo</title>
+<style>
+html,body{margin:0;padding:0;overflow:hidden;background:#000;}
+#canvas2d{display:none;position:absolute;top:0;left:0;}
+#panel{
+  position:absolute;top:10px;right:10px;width:320px;max-height:90vh;
+  background:rgba(0,0,0,0.8);color:#fff;padding:10px;overflow:auto;font-family:sans-serif;
+  border-radius:6px;
+}
+#panel h2{margin:0 0 6px 0;font-size:16px;}
+#miniChart{width:300px;height:100px;background:#111;margin-top:6px;}
+</style>
+</head>
+<body>
+<canvas id="canvas3d"></canvas>
+<canvas id="canvas2d"></canvas>
+<div id="panel">
+<h2>Node Info</h2>
+<div id="content">Hover a node</div>
+<canvas id="miniChart"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.156.0/build/three.min.js"></script>
+<script>
+// ---------------- GPU 检测 ----------------
+function isWebGL2Available(){try{const c=document.createElement('canvas');return !!(window.WebGL2RenderingContext && c.getContext('webgl2'));}catch(e){return false;}}
+function isHighPerfGPU(){try{const gl=document.createElement('canvas').getContext('webgl');if(!gl)return false;const debugInfo=gl.getExtension('WEBGL_debug_renderer_info');if(debugInfo){const r=gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);if(/Intel|VMware|Microsoft|SwiftShader/i.test(r))return false;}return true;}catch(e){return false;}}
+const USE_3D = isWebGL2Available() && isHighPerfGPU();
+console.log("Using 3D mode:",USE_3D);
+
+// ---------------- 初始节点数 ----------------
+let NODE_COUNT;
+if(USE_3D){NODE_COUNT=5000;}else{NODE_COUNT=1500;}
+console.log("Initial nodes:",NODE_COUNT);
+
+// ---------------- Shared ----------------
+const nodeData=[];
+for(let i=0;i<NODE_COUNT;i++){nodeData.push({index:i,name:'Node_'+i,gravity:Math.random()*5,hotspot:Math.random(),scale:1,rotationSpeed:(Math.random()-0.5)*0.01,evolution:{generation:0,fitness_results:[Math.random(),Math.random(),Math.random(),Math.random(),Math.random()]},clusterId:Math.floor(Math.random()*5),dependencies:[]});}
+nodeData.forEach(n=>{for(let j=0;j<Math.floor(Math.random()*3);j++){const t=Math.floor(Math.random()*NODE_COUNT);if(t!==n.index)n.dependencies.push(t);}});
+
+const panelContent=document.getElementById('content');
+const miniChartCanvas=document.getElementById('miniChart');
+const miniCtx=miniChartCanvas.getContext('2d');
+function drawMiniChart(f){miniCtx.fillStyle="#111";miniCtx.fillRect(0,0,miniChartCanvas.width,miniChartCanvas.height);miniCtx.strokeStyle="#0f0";miniCtx.beginPath();const s=miniChartCanvas.width/f.length;f.forEach((v,i)=>{const y=miniChartCanvas.height*(1-v);i===0?miniCtx.moveTo(0,y):miniCtx.lineTo(i*s,y);});miniCtx.stroke();}
+
+// ---------------- WebSocket ----------------
+const ws=new WebSocket('ws://localhost:8765/ws');
+ws.onopen=()=>console.log("WS connected");
+ws.onmessage=e=>{const data=JSON.parse(e.data);nodeData.forEach(n=>{const g=data.semantic_gravity?.[n.name]??n.gravity;const hot=data.attention_map?.[n.name]??n.hotspot;n.gravity=g;n.hotspot=hot;n.scale=0.5+g*0.3+hot*0.5;n.clusterId=Math.floor(data.agent_affinity?.[n.name]??n.clusterId);if(data.evolution){n.evolution.generation=data.evolution.generation;n.evolution.fitness_results=data.evolution.fitness_results??n.evolution.fitness_results;}const arch=data.archive_hotspots?.[n.index];if(arch?.dependencies)n.dependencies=arch.dependencies;});};
+
+// ---------------- 动态 FPS 节点调节 ----------------
+let lastFrameTime=performance.now();
+let frameTimes=[];
+const FPS_SAMPLE_SIZE=30;
+
+function adaptiveNodeCount(){
+    const now=performance.now();
+    const dt=now-lastFrameTime;
+    lastFrameTime=now;
+    frameTimes.push(dt);
+    if(frameTimes.length>FPS_SAMPLE_SIZE)frameTimes.shift();
+    const avgDt=frameTimes.reduce((a,b)=>a+b,0)/frameTimes.length;
+    const fps=1000/avgDt;
+    let targetNodes=NODE_COUNT;
+    if(USE_3D){
+        if(fps<25)targetNodes=Math.max(1000,Math.floor(NODE_COUNT*0.95));
+        else if(fps>50)targetNodes=Math.min(5000,Math.floor(NODE_COUNT*1.05));
+    }else{
+        if(fps<25)targetNodes=Math.max(500,Math.floor(NODE_COUNT*0.95));
+        else if(fps>50)targetNodes=Math.min(2000,Math.floor(NODE_COUNT*1.05));
+    }
+    if(targetNodes!==NODE_COUNT){
+        if(targetNodes>NODE_COUNT){
+            for(let i=NODE_COUNT;i<targetNodes;i++){
+                nodeData.push({index:i,name:'Node_'+i,gravity:Math.random()*5,hotspot:Math.random(),scale:1,rotationSpeed:(Math.random()-0.5)*0.01,evolution:{generation:0,fitness_results:[Math.random(),Math.random(),Math.random(),Math.random(),Math.random()]},clusterId:Math.floor(Math.random()*5),dependencies:[]});
+            }
+        }else{
+            nodeData.splice(targetNodes);
+        }
+        NODE_COUNT=targetNodes;
+        if(USE_3D){
+            nodeMesh.count=NODE_COUNT;
+            nodeMesh.instanceMatrix.needsUpdate=true;
+            nodeMesh.instanceColor.needsUpdate=true;
+        }
+    }
+}
+
+// ---------------- 3D ----------------
+if(USE_3D){
+    const canvas=document.getElementById('canvas3d');
+    const scene=new THREE.Scene();
+    const camera=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,2000);
+    camera.position.z=300;
+    const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+    renderer.setSize(window.innerWidth,window.innerHeight);
+    const sphereGeo=new THREE.SphereGeometry(0.5,8,8);
+    const sphereMat=new THREE.MeshStandardMaterial({vertexColors:true});
+    const nodeMesh=new THREE.InstancedMesh(sphereGeo,sphereMat,NODE_COUNT);
+    scene.add(nodeMesh);
+    const dummy=new THREE.Object3D();
+    const color=new THREE.Color();
+    nodeData.forEach(n=>{dummy.position.set((Math.random()-0.5)*600,(Math.random()-0.5)*600,(Math.random()-0.5)*600);dummy.scale.setScalar(Math.random()*0.5+0.5);dummy.updateMatrix();nodeMesh.setMatrixAt(n.index,dummy.matrix);color.setHSL(Math.random(),1,0.5);nodeMesh.setColorAt(n.index,color);n.posX=dummy.position.x;n.posY=dummy.position.y;n.posZ=dummy.position.z;});
+    nodeMesh.instanceMatrix.needsUpdate=true;nodeMesh.instanceColor.needsUpdate=true;
+
+    const haloGeo=new THREE.BufferGeometry();
+    const haloPositions=new Float32Array(NODE_COUNT*3);
+    const haloSizes=new Float32Array(NODE_COUNT);
+    for(let i=0;i<NODE_COUNT;i++){haloPositions[i*3]=nodeData[i].posX;haloPositions[i*3+1]=nodeData[i].posY;haloPositions[i*3+2]=nodeData[i].posZ;haloSizes[i]=1+nodeData[i].hotspot*5;}
+    haloGeo.setAttribute('position',new THREE.BufferAttribute(haloPositions,3));
+    haloGeo.setAttribute('size',new THREE.BufferAttribute(haloSizes,1));
+    const haloMat=new THREE.PointsMaterial({color:0xffff66,size:2,transparent:true,blending:THREE.AdditiveBlending});
+    const haloPoints=new THREE.Points(haloGeo,haloMat);
+    scene.add(haloPoints);
+
+    const dagGeo=new THREE.BufferGeometry();
+    const dagPositions=new Float32Array(NODE_COUNT*3*3);
+    dagGeo.setAttribute('position',new THREE.BufferAttribute(dagPositions,3));
+    const dagMat=new THREE.LineBasicMaterial({color:0xff0000,transparent:true,opacity:0.6});
+    const dagLines=new THREE.LineSegments(dagGeo,dagMat);
+    scene.add(dagLines);
+
+    const light=new THREE.DirectionalLight(0xffffff,1);light.position.set(100,100,100);scene.add(light);
+    const raycaster=new THREE.Raycaster();
+    const mouse=new THREE.Vector2();let hoverIndex=-1;
+    window.addEventListener('mousemove',e=>{mouse.x=(e.clientX/window.innerWidth)*2-1;mouse.y=-(e.clientY/window.innerHeight)*2+1;});
+    let clusterFade=0,fadeTarget=0;
+    function highlightClusterAndDAG(clusterId,nodeIndex){fadeTarget=1;nodeData.forEach(n=>{nodeMesh.getColorAt(n.index,color);let base=new THREE.Color();if(n.clusterId===clusterId)base.setRGB(0,1,0);else base.setRGB(1,1,1);color.lerp(base,clusterFade);nodeMesh.setColorAt(n.index,color);});nodeMesh.instanceColor.needsUpdate=true;let lineCount=0;nodeData[nodeIndex].dependencies.forEach(dep=>{const from=nodeData[nodeIndex],to=nodeData[dep];dagPositions[lineCount*3+0]=from.posX;dagPositions[lineCount*3+1]=from.posY;dagPositions[lineCount*3+2]=from.posZ;dagPositions[lineCount*3+3]=to.posX;dagPositions[lineCount*3+4]=to.posY;dagPositions[lineCount*3+5]=to.posZ;lineCount++;});dagGeo.setDrawRange(0,lineCount*2);dagGeo.attributes.position.needsUpdate=true;}
+    const clock=new THREE.Clock();
+    function animate3D(){requestAnimationFrame(animate3D);adaptiveNodeCount();const t=clock.getElapsedTime();clusterFade+=(fadeTarget-clusterFade)*0.05;if(hoverIndex===-1)fadeTarget=0;nodeData.forEach(n=>{nodeMesh.getMatrixAt(n.index,dummy.matrix);dummy.position.set(dummy.matrix.elements[12],dummy.matrix.elements[13],dummy.matrix.elements[14]);dummy.rotation.y+=n.rotationSpeed;dummy.scale.setScalar(n.scale);dummy.updateMatrix();nodeMesh.setMatrixAt(n.index,dummy.matrix);haloPositions[n.index*3]=dummy.position.x;haloPositions[n.index*3+1]=dummy.position.y;haloPositions[n.index*3+2]=dummy.position.z;haloSizes[n.index]=1+n.hotspot*5+Math.sin(t*2+n.index)*0.5;n.posX=dummy.position.x;n.posY=dummy.position.y;n.posZ=dummy.position.z;});nodeMesh.instanceMatrix.needsUpdate=true;haloGeo.attributes.position.needsUpdate=true;haloGeo.attributes.size.needsUpdate=true;raycaster.setFromCamera(mouse,camera);const intersects=raycaster.intersectObject(nodeMesh);if(intersects.length>0){const i=intersects[0].instanceId;if(i!==hoverIndex){hoverIndex=i;const n=nodeData[i];panelContent.innerHTML=`<b>${n.name}</b><br>Cluster:${n.clusterId}<br>Gravity:${n.gravity.toFixed(2)}<br>Hotspot:${n.hotspot.toFixed(2)}`;drawMiniChart(n.evolution.fitness_results);highlightClusterAndDAG(n.clusterId,i);}}else hoverIndex=-1;renderer.render(scene,camera);}
+    animate3D();
+    window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
+}
+
+// ---------------- 2D ----------------
+else{
+    const canvas2d=document.getElementById('canvas2d');canvas2d.style.display="block";
+    const ctx=canvas2d.getContext('2d');canvas2d.width=window.innerWidth;canvas2d.height=window.innerHeight;
+    nodeData.forEach(n=>{n.x=Math.random()*canvas2d.width;n.y=Math.random()*canvas2d.height;});
+    let hoverIndex=-1;let t=0;
+
+    function animate2D(){
+        requestAnimationFrame(animate2D);
+        adaptiveNodeCount();
+        ctx.clearRect(0,0,canvas2d.width,canvas2d.height);
+        t+=0.02;
+
+        ctx.strokeStyle="rgba(255,0,0,0.3)";
+        nodeData.forEach(n=>{n.dependencies.forEach(dep=>{const d=nodeData[dep];ctx.beginPath();ctx.moveTo(n.x,n.y);ctx.lineTo(d.x,d.y);ctx.stroke();});});
+
+        nodeData.forEach(n=>{
+            const pulse=0.3+0.3*Math.sin(t*5+n.index);
+            const hue=(n.clusterId/5)*360;
+            ctx.beginPath();
+            ctx.arc(n.x,n.y,2+n.gravity*0.5,0,Math.PI*2);
+            ctx.fillStyle=`hsla(${hue},100%,50%,${pulse+n.hotspot*0.5})`;
+            ctx.fill();
+            if(hoverIndex!==-1 && n.clusterId===nodeData[hoverIndex].clusterId){
+                ctx.strokeStyle=`hsla(${hue},100%,70%,${pulse})`;
+                ctx.lineWidth=2;
+                ctx.stroke();
+            }
+        });
+    }
+    animate2D();
+
+    canvas2d.addEventListener('mousemove',e=>{
+        const mx=e.offsetX,my=e.offsetY;hoverIndex=-1;
+        for(let i=0;i<nodeData.length;i++){
+            const n=nodeData[i];
+            if(Math.hypot(mx-n.x,my-n.y)<5){
+                hoverIndex=i;
+                panelContent.innerHTML=`<b>${n.name}</b><br>Cluster:${n.clusterId}<br>Gravity:${n.gravity.toFixed(2)}<br>Hotspot:${n.hotspot.toFixed(2)}`;
+                drawMiniChart(n.evolution.fitness_results);
+                break;
+            }
+        }
+    });
+
+    window.addEventListener('resize',()=>{canvas2d.width=window.innerWidth;canvas2d.height=window.innerHeight;});
+}
+</script>
+</body>
+</html>

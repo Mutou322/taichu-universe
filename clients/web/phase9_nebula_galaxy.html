@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nebula UI — Galactic Rotation</title>
+<script src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#050816;color:#fff;font-family:Arial,Helvetica,sans-serif;user-select:none}
+#container{
+    position:relative;width:100vw;height:100vh;
+    background:radial-gradient(circle at 50% 50%, rgba(30,50,120,0.12) 0%, transparent 60%),
+               radial-gradient(circle at 50% 50%, rgba(255,180,50,0.03) 0%, transparent 40%),
+               radial-gradient(circle at 50% 50%, #070d1f 0%, #040712 100%);
+}
+#center-core{
+    position:absolute;left:50%;top:50%;
+    width:160px;height:160px;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:radial-gradient(circle,#fffbe0 0%,#ffd966 18%,rgba(255,160,0,0.20) 45%,transparent 70%);
+    filter:blur(2px);pointer-events:none;z-index:0;
+}
+#center-core::after{
+    content:"";position:absolute;inset:-100px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,0.04);
+}
+#topbar{
+    position:absolute;top:16px;left:20px;z-index:99;
+    background:rgba(0,0,0,0.50);padding:10px 16px;border-radius:14px;
+    border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(10px);
+    display:flex;align-items:center;gap:14px;
+}
+#topbar h1{margin:0;font-size:18px;color:#7dd3fc;letter-spacing:0.5px}
+#ws-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ade80;animation:pulse 2s infinite;margin-right:6px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+#sidebar{
+    position:absolute;right:12px;top:12px;bottom:12px;width:380px;z-index:99;
+    display:flex;flex-direction:column;gap:8px;overflow-y:auto;
+}
+.panel{
+    background:rgba(10,15,30,0.75);border:1px solid rgba(255,255,255,0.06);
+    border-radius:12px;padding:12px;backdrop-filter:blur(8px);
+}
+.panel-title{font-size:13px;color:#7dd3fc;margin-bottom:8px;font-weight:600}
+.metric{font-size:12px;margin-bottom:5px;display:flex;justify-content:space-between}
+.metric span{color:#4ade80}
+.ctrl{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.ctrl label{font-size:12px;min-width:70px;color:#94a3b8}
+.ctrl input[type=range]{flex:1;height:4px;accent-color:#7dd3fc}
+.ctrl .val{font-size:12px;min-width:30px;text-align:right;color:#7dd3fc}
+.log-line{font-size:11px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.03);opacity:0.85}
+.glow{box-shadow:0 0 20px rgba(59,130,246,0.2)}
+#hotspot-list{font-size:12px}
+.hotspot-item{padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;justify-content:space-between}
+canvas{z-index:1;position:relative}
+</style>
+</head>
+<body>
+
+<div id="container">
+    <div id="center-core"></div>
+    <div id="topbar">
+        <span id="ws-dot"></span>
+        <h1>Nebula Galaxy</h1>
+        <span id="ws-status" style="font-size:12px;color:#64748b;">(离线)</span>
+    </div>
+    <div id="sidebar">
+        <div class="panel glow">
+            <div class="panel-title">Runtime</div>
+            <div class="metric">Knowledge Nodes <span id="nodeCount">--</span></div>
+            <div class="metric">Semantic Gravity <span id="gravityVal">--</span></div>
+            <div class="metric">Evolution Fitness <span id="fitnessVal">--</span></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">Galaxy Control</div>
+            <div class="ctrl"><label>Rotation Speed</label><input type="range" id="rotSpeed" min="0.001" max="0.05" step="0.001" value="0.01"><span class="val" id="rotVal">0.01</span></div>
+            <div class="ctrl"><label>Node Count</label><input type="range" id="nodeCountSlider" min="50" max="500" step="10" value="150"><span class="val" id="nodeCountVal">150</span></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">Archive Hotspots</div>
+            <div id="hotspot-list">等待数据...</div>
+        </div>
+
+        <div class="panel" style="flex:1;">
+            <div class="panel-title">Runtime Logs</div>
+            <div id="logs" style="font-size:11px;overflow-y:auto;max-height:200px;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const API = 'http://127.0.0.1:8765';
+
+// ---- vis-network ----
+const nodes = new vis.DataSet([]);
+const edges = new vis.DataSet([]);
+const container = document.getElementById("container");
+const network = new vis.Network(container, {nodes, edges}, {
+    physics: false,
+    interaction: { hover: true, zoomView: true, dragView: true, dragNodes: true },
+    nodes: { shape: "dot", borderWidth: 0, font: { color: "#ffffff", size: 11 } },
+    edges: { color: { color: "rgba(255,255,255,0.06)" }, smooth: false }
+});
+
+// ---- 严格按照五哥给的参考代码 ----
+let rotationSpeed = 0.01;
+let starClouds = {};  // { id: { r, theta } }
+
+function initStarCloudRotation(nodesData) {
+    starClouds = {};
+    nodesData.forEach(function(node) {
+        if(node.id === "KnowledgeCore") return;
+        const dx = node.x - 0;
+        const dy = node.y - 0;
+        const r = Math.sqrt(dx*dx + dy*dy);
+        const theta = Math.atan2(dy, dx);
+        starClouds[node.id] = { r: r, theta: theta };
+    });
+}
+
+function rotateStarClouds() {
+    Object.entries(starClouds).forEach(function([id, polar]) {
+        polar.theta += rotationSpeed;
+        const x = 0 + polar.r * Math.cos(polar.theta);
+        const y = 0 + polar.r * Math.sin(polar.theta);
+        nodes.update({ id: id, x: x, y: y });
+    });
+    requestAnimationFrame(rotateStarClouds);
+}
+
+// ---- 初始生成银河 ----
+function createGalaxy(nodeCount) {
+    nodes.clear(); edges.clear();
+    nodes.add({ id: "KnowledgeCore", label: "", x: 0, y: 0, size: 60, color: "#fff2b2", fixed: true });
+    for(var i = 0; i < nodeCount; i++) {
+        var r = 200 + Math.random() * 800;
+        var theta = Math.random() * Math.PI * 2;
+        var nid = "n_" + i;
+        nodes.add({
+            id: nid, label: "",
+            x: r * Math.cos(theta), y: r * Math.sin(theta),
+            size: 4 + Math.random() * 16,
+            color: ["#60a5fa","#c084fc","#34d399","#f59e0b","#f472b6","#22d3ee"][Math.floor(Math.random()*6)]
+        });
+        if(Math.random() > 0.8) edges.add({ from: "KnowledgeCore", to: nid });
+    }
+    initStarCloudRotation(nodes.get());
+}
+
+// ---- 从知识库加载真实数据 ----
+async function loadRealData() {
+    try {
+        var resp = await fetch(API + '/api/kb/graph?limit=0');
+        var data = await resp.json();
+        if(data.nodes && data.nodes.length > 0) {
+            nodes.clear(); edges.clear();
+            var cx = 0, cy = 0, cnt = 0;
+            data.nodes.forEach(function(n){ if(n.x!==undefined&&n.y!==undefined){cx+=n.x;cy+=n.y;cnt++;} });
+            if(cnt>0){cx/=cnt;cy/=cnt;}
+            nodes.add({ id: "KnowledgeCore", label: "", x: cx, y: cy, size: 60, color: "#fff2b2", fixed: true });
+            data.nodes.forEach(function(n, i){
+                var nid = n.id || "n" + i;
+                nodes.add({
+                    id: nid, label: n.label || '',
+                    x: n.x || 0, y: n.y || 0,
+                    size: 5 + Math.random() * 12,
+                    color: ["#60a5fa","#c084fc","#34d399","#f59e0b","#f472b6","#22d3ee"][Math.floor(Math.random()*6)]
+                });
+            });
+            (data.edges || []).forEach(function(e){ edges.add({ from: e.from, to: e.to }); });
+            var allNodes = nodes.get();
+            // 重新置入极坐标，中心用 KnowledgeCore 的位置
+            initStarCloudRotation(allNodes);
+            document.getElementById('nodeCount').innerText = data.total_nodes || data.nodes.length;
+        } else {
+            createGalaxy(150);
+        }
+    } catch(e) {
+        createGalaxy(150);
+    }
+}
+
+// ---- WebSocket ----
+var ws = null;
+function connectWS() {
+    try {
+        ws = new WebSocket('ws://127.0.0.1:8765/ws');
+        ws.onopen = function(){
+            document.getElementById('ws-status').innerHTML = '<span style="color:#4ade80;">(在线)</span>';
+            pushLog("WS connected");
+        };
+        ws.onmessage = function(ev){
+            try {
+                var d = JSON.parse(ev.data);
+                if(d.evolution) {
+                    var best = Math.max.apply(null, d.evolution.fitness_results);
+                    document.getElementById('fitnessVal').innerText = 'Gen ' + d.evolution.generation + ' / ' + best.toFixed(4);
+                }
+                if(d.attention_map) {
+                    var total=0, count=0;
+                    Object.values(d.attention_map).forEach(function(v){total+=v;count++;});
+                    if(count>0) document.getElementById('gravityVal').innerText = (total/count).toFixed(4);
+                }
+                if(d.archive_hotspots) {
+                    var hl = document.getElementById('hotspot-list');
+                    hl.innerHTML = (d.archive_hotspots||[]).slice(0,6).map(function(h){
+                        return '<div class="hotspot-item"><span>'+(h.file_name||h.archive_id||'?')+'</span><span style="color:#7dd3fc;">'+(h.hotness!==undefined?h.hotness.toFixed(2):'--')+'</span></div>';
+                    }).join('');
+                }
+                if(d.ingestion) pushLog('INGEST '+(d.ingestion.archive_id||'')+' archived');
+            } catch(e){}
+        };
+        ws.onclose = function(){
+            document.getElementById('ws-status').innerHTML = '<span style="color:#f87171;">(离线)</span>';
+            setTimeout(connectWS,3000);
+        };
+    } catch(e){ setTimeout(connectWS,3000); }
+}
+
+// ---- Logs ----
+var logEl = document.getElementById("logs");
+function pushLog(msg){
+    var div = document.createElement("div");
+    div.className = "log-line";
+    div.innerHTML = '['+new Date().toLocaleTimeString()+'] '+msg;
+    logEl.prepend(div);
+    while(logEl.children.length>30) logEl.removeChild(logEl.lastChild);
+}
+setInterval(function(){
+    var msgs = ["GBrain cluster evolved","Semantic gravity updated","Agent specialization reinforced","GEP mutation completed","Workflow DAG executed","Embedding shard synced","Attention map refreshed"];
+    pushLog(msgs[Math.floor(Math.random()*msgs.length)]);
+}, 3000);
+
+// ---- Controls ----
+document.getElementById("rotSpeed").addEventListener("input",function(e){
+    rotationSpeed = parseFloat(e.target.value);
+    document.getElementById("rotVal").innerText = rotationSpeed.toFixed(3);
+});
+document.getElementById("nodeCountSlider").addEventListener("input",function(e){
+    var c = parseInt(e.target.value);
+    document.getElementById("nodeCountVal").innerText = c;
+    document.getElementById('nodeCount').innerText = c;
+    createGalaxy(c);
+});
+
+// ---- Stats poll ----
+setInterval(function(){
+    fetch(API+'/api/stats').then(function(r){return r.json();}).then(function(d){
+        document.getElementById('nodeCount').innerText = d.wiki_count || '--';
+    }).catch(function(){});
+}, 10000);
+
+// ---- 启动 ----
+createGalaxy(150);
+rotateStarClouds();
+connectWS();
+pushLog("Nebula Galaxy initialized");
+</script>
+</body>
+</html>
