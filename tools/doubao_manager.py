@@ -1,148 +1,184 @@
-#!/usr/bin/env python3
-"""
-豆包 LLM 知识管家 — 将 inbox/ + raw/ 中的文件转换为 wiki/ 知识文档
+"""doubao_manager — 知识库文件扫描与编译入口（豆包 LLM 驱动）
 
-使用 core/ingest/router.py 多模态 ingest 流水线：
-  text → 直接读取
-  pdf/office → markitdown 转换
-  image → 豆包 Vision API 理解
+负责:
+  1. 扫描 inbox/ 目录发现新文件
+  2. 通过 ingest/pipelines 调度到对应管道（格式转换/OCR/解压）
+  3. 调用 kb_models.py compile 使用豆包 LLM 编译为 wiki 词条
+  4. 编译完成后刷新语义图谱
 """
 
-import re
+import logging
 import subprocess
 import sys
 from pathlib import Path
 
-# 统一配置中心
-sys.path.insert(0, str(Path.home() / "taichu" / "config"))
-from paths import paths
+logger = logging.getLogger(__name__)
 
-WIKI_DIR = paths.wiki_dir
-INBOX_DIR = paths.inbox_dir
-VAULT = paths.root
-KB_MODELS = Path.home() / ".hermes" / "skills" / "wiki-knowledge-base" / "scripts" / "kb_models.py"
+# 加 ~/taichu 到路径以导入 runtime 模块
+sys.path.insert(0, str(Path.home() / "taichu"))
+from runtime.bootstrap import init_runtime
 
-# 将 core/ 加入 sys.path
-CORE_DIR = VAULT / "tools" / "core"
-if str(CORE_DIR) not in sys.path:
-    sys.path.insert(0, str(CORE_DIR))
+ctx = init_runtime()
+paths = ctx["paths"]
+
+KB_MODELS = str(paths.kb_models)
+STORE_DIR = paths.get("storage", "raw")
 
 
-def compile_md(f: Path) -> int:
-    """直接编译 .md 文件（不分 inbox/raw）"""
-    try:
-        result = subprocess.run(
-            [sys.executable, str(KB_MODELS), "compile", str(f)],
-            capture_output=True, text=True, timeout=180
-        )
-        output = result.stdout + result.stderr
-        if result.returncode == 0 and "Written" in output:
-            print("OK")
-            return 1
-        else:
-            print(f"失败: {output.strip()[-150:]}")
-            return 0
-    except subprocess.TimeoutExpired:
-        print("超时(180s)")
+def scan_inbox() -> list[dict]:
+    """扫描 inbox 目录，返回待处理文件列表"""
+    inbox = Path(paths.ingest.inbox)
+    if not inbox.exists():
+        return []
+
+    files = []
+    for f in sorted(inbox.iterdir()):
+        if f.is_file() and not f.name.startswith("."):
+            files.append(
+                {
+                    "path": str(f),
+                    "name": f.name,
+                    "size": f.stat().st_size,
+                    "suffix": f.suffix.lower(),
+                }
+            )
+    return files
+
+
+def compile_all() -> int:
+    """主入口：扫描 inbox → 管道分流 → 豆包 LLM 编译 → wiki"""
+    from ingest.pipelines import SUPPORTED, dispatch
+
+    inbox = Path(paths.ingest.inbox)
+    wiki_dir = paths.wiki_dir
+    processed_dir = Path(paths.ingest.processed)
+    failed_dir = Path(paths.ingest.failed)
+    store_dir = Path(STORE_DIR)
+
+    inbox.mkdir(parents=True, exist_ok=True)
+    wiki_dir.mkdir(parents=True, exist_ok=True)
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    failed_dir.mkdir(parents=True, exist_ok=True)
+    store_dir.mkdir(parents=True, exist_ok=True)
+
+    files = [f for f in sorted(inbox.iterdir()) if f.is_file() and not f.name.startswith(".")]
+    if not files:
+        logger.info("inbox 中没有待处理文件")
         return 0
-    except Exception as e:
-        print(f"错误: {e}")
-        return 0
 
-
-def process_inbox() -> int:
-    if not INBOX_DIR.exists():
-        print("inbox/ 目录不存在")
-        return 0
-
-    from core.ingest.router import ingest_file
-
+    logger.info(f"发现 {len(files)} 个待处理文件，调度管道编译...")
     converted = 0
 
-    # 处理 inbox/ 的所有文件
-    for f in sorted(INBOX_DIR.iterdir()):
-        if f.is_dir():
-            continue
-        print(f"  {f.name}...", end=" ")
-
-        if f.suffix == ".md":
-            # .md 文件直接编译
-            converted += compile_md(f)
-            f.unlink()
+    for f in files:
+        ext = f.suffix.lower()
+        if ext not in SUPPORTED:
+            logger.warning(f"不支持的文件格式: {f.name}")
+            _move_to(failed_dir, f)
             continue
 
-        # 通过 ingest router 提取内容
-        try:
-            ingested = ingest_file(f)
-        except ValueError as e:
-            print(f"跳过: {e}")
-            f.unlink()
+        logger.info(f"  📄 {f.name}...")
+
+        # 1. 管道调度（格式转换/OCR/解压）
+        result = dispatch(f, target_dir=wiki_dir, store_dir=store_dir)
+
+        if not result["ok"]:
+            logger.warning(f"  ❌ {f.name}: {result.get('error', '管道处理失败')}")
+            _move_to(failed_dir, f)
             continue
 
-        text = ingested.text
-        if not text.strip():
-            print("跳过: 内容为空")
-            f.unlink()
+        converted_path = Path(result["result"])
+
+        # 2. .md 文件直接发布到 wiki（已在 dispatch 中复制）
+        if ext == ".md":
+            converted += 1
+            _move_to(processed_dir, f)
+            logger.info(f"  ✅ {f.name} → wiki (直接发布)")
             continue
 
-        # 对于图片/UI 截图，Vision 返回的内容可能较长，不截断
-        stem = re.sub(r'[\\/*?:"<>|]', "_", f.stem)
-        target_name = f"{stem}.md"
-        tmp_file = INBOX_DIR / target_name
-
-        # 图片类内容不截断，完整保留 Vision 分析结果
-        if ingested.modality == "image":
-            tmp_file.write_text(
-                f"# {stem}\n\n来源: {f.name}\n\n{text}",
-                encoding="utf-8"
-            )
+        # 3. 其他格式（PDF/Office/图片等）：用豆包 LLM 编译为 wiki 词条
+        if _needs_llm_compile(ext):
+            kb_result = _compile_with_doubao(converted_path)
+            if kb_result["ok"]:
+                converted += 1
+                _move_to(processed_dir, f)
+                logger.info(f"  ✅ {f.name} → 豆包编译完成")
+            else:
+                logger.warning(f"  ❌ {f.name} 编译失败: {kb_result.get('error', '未知错误')}")
+                _move_to(failed_dir, f)
         else:
-            tmp_file.write_text(
-                f"# {stem}\n\n来源: {f.name}\n\n{text[:8000]}",
-                encoding="utf-8"
-            )
+            # 源码 / 文本类直接发布
+            converted += 1
+            _move_to(processed_dir, f)
+            logger.info(f"  ✅ {f.name} → wiki (源码/文本)")
 
-        converted += compile_md(tmp_file)
-
-        if tmp_file.exists():
-            tmp_file.unlink()
-        f.unlink()
-
-    # 处理 raw/ 中的 .md
-    raw_dir = VAULT / "raw"
-    if raw_dir.exists():
-        for f in sorted(raw_dir.iterdir()):
-            if f.suffix == ".md" and f.is_file():
-                wiki_target = WIKI_DIR / f.name
-                if wiki_target.exists():
-                    continue  # 已编译过
-                print(f"  [{f.name}]...", end=" ")
-                converted += compile_md(f)
-
+    logger.info(f"编译完成: {converted}/{len(files)}")
     return converted
 
 
+def _needs_llm_compile(ext: str) -> bool:
+    """需要豆包 LLM 编译的文件类型"""
+    return ext in (
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".ppt",
+        ".pptx",
+        ".xls",
+        ".xlsx",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".webp",
+        ".gif",
+        ".bmp",
+        ".svg",
+        ".html",
+        ".htm",
+        ".epub",
+        ".rtf",
+    )
+
+
+def _compile_with_doubao(file_path: Path) -> dict:
+    """调用 kb_models.py compile 使用豆包 LLM 编译"""
+    if not Path(KB_MODELS).exists():
+        return {"ok": False, "error": f"kb_models.py 不存在: {KB_MODELS}"}
+    if not file_path.exists():
+        return {"ok": False, "error": f"文件不存在: {file_path}"}
+
+    try:
+        result = subprocess.run(
+            [sys.executable, KB_MODELS, "compile", str(file_path)],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if result.returncode == 0:
+            return {"ok": True, "output": result.stdout.strip()}
+        else:
+            return {"ok": False, "error": result.stderr.strip() or result.stdout.strip()}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "编译超时(180s)"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def _move_to(target_dir: Path, file_path: Path):
+    """移动文件到目标目录"""
+    dest = target_dir / file_path.name
+    # 同名文件加时间戳
+    if dest.exists():
+        import time
+
+        dest = target_dir / f"{file_path.stem}_{int(time.time())}{file_path.suffix}"
+    file_path.rename(dest)
+
+
 def main():
-    count = process_inbox()
-    if count > 0:
-        print(f"\nCONVERTED:{count}")
-        # After successful compilation, trigger ChromaDB incremental index update
-        chroma_idx = VAULT / "tools" / "build_chromadb_index.py"
-        if chroma_idx.exists():
-            try:
-                print("  [ChromaDB] 更新向量索引...")
-                result = subprocess.run(
-                    [sys.executable, str(chroma_idx), "incremental"],
-                    capture_output=True, text=True, timeout=120,
-                )
-                if result.returncode == 0:
-                    print(f"  [ChromaDB] 增量索引更新完成")
-                else:
-                    print(f"  [ChromaDB] 更新失败: {result.stderr.strip()[-120:]}")
-            except Exception as e:
-                print(f"  [ChromaDB] 更新异常: {e}")
-    else:
-        print("没有需要转换的文件。")
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    count = compile_all()
+    print(f"CONVERTED: {count}")
+    return count
 
 
 if __name__ == "__main__":

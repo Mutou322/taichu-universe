@@ -2,6 +2,7 @@
 
 import base64
 import os
+
 from openai import OpenAI
 
 # 从 ~/.hermes/config.yaml 中读取 API key 和 endpoint
@@ -18,6 +19,7 @@ def _load_config():
         return
 
     import yaml
+
     try:
         with open(_HERMES_CONFIG) as f:
             cfg = yaml.safe_load(f)
