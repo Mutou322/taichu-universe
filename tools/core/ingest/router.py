@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from .types import IngestResult
-from .text_ingest import ingest_text
 from .image_ingest import ingest_image
 from .pdf_ingest import ingest_pdf
+from .text_ingest import ingest_text
+from .types import IngestResult
 
 TEXT_EXT = {".md", ".txt", ".csv", ".json", ".xml"}
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".ico", ".svg", ".tiff", ".tif"}

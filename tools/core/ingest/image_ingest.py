@@ -1,7 +1,8 @@
 from pathlib import Path
-from .types import IngestResult
 
 from core.vision.doubao_vision import vision_analyze
+
+from .types import IngestResult
 
 VISION_PROMPT = """
 请分析这张图片中的内容。

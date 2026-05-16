@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from markitdown import MarkItDown
 
 from .types import IngestResult

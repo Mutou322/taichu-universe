@@ -4,9 +4,10 @@
 上层（Runtime）不知道 ChromaDB 的存在，只知道 VectorStore。
 """
 
-import chromadb
 from pathlib import Path
 from typing import Optional
+
+import chromadb
 
 
 class ChromaStore:
@@ -36,8 +37,7 @@ class ChromaStore:
             metadatas=[meta],
         )
 
-    def add_with_embedding(self, doc_id: str, content: str, embedding: list[float],
-                           metadata: Optional[dict] = None):
+    def add_with_embedding(self, doc_id: str, content: str, embedding: list[float], metadata: Optional[dict] = None):
         self._get_collection().add(
             ids=[doc_id],
             documents=[content],
@@ -53,8 +53,7 @@ class ChromaStore:
             n_results=min(limit, 50),
         )
 
-    def query_by_embedding(self, embedding: list[float], limit: int = 10,
-                           collection: str = None) -> dict:
+    def query_by_embedding(self, embedding: list[float], limit: int = 10, collection: str = None) -> dict:
         return self._get_collection(collection).query(
             query_embeddings=[embedding],
             n_results=min(limit, 50),
