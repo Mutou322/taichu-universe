@@ -6,17 +6,24 @@
 """
 
 from pathlib import Path
-import sys
 
-sys.path.insert(0, str(Path.home() / "taichu"))
+from config.bootstrap import *
 from runtime.events.bus import bus
-
 
 # 定义事件 → WebSocket 的映射关系（供 ws server 注册使用）
 EVENT_WS_MAP = {
     "memory:stored": "memory:stored",
     "memory:deleted": "memory:deleted",
     "graph:updated": "graph:updated",
+    # Phase 2 Retrieval Pipeline metrics
+    "vector_search_results": "retrieval:vector_results",
+    "retrieval_pipeline_completed": "retrieval:pipeline_completed",
+    # Phase 3 GBrain metrics
+    "semantic_gravity": "semantic_gravity",
+    "graph_clusters": "graph_clusters",
+    "ontology_metrics": "ontology_metrics",
+    "gep_sandbox_fitness": "gep_sandbox_fitness",
+    "gep_multi_agent_fitness": "gep_multi_agent_fitness",
 }
 
 

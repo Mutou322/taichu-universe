@@ -10,7 +10,9 @@ import logging
 import threading
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable, Any
+from typing import Any, Callable
+
+from runtime.metrics.counters import metrics_counters
 
 logger = logging.getLogger("taichu.events")
 
@@ -43,7 +45,10 @@ class EventBus:
 
     def emit_sync(self, event_type: str, data: Any = None):
         """同步发射事件，等待所有处理器完成。用于事务关键场景。"""
-        for handler in self._handlers.get(event_type, []):
+        handlers = self._handlers.get(event_type, [])
+        metrics_counters.increment(f"eventbus.emit_sync.{event_type}")
+        metrics_counters.increment("eventbus.total_emits")
+        for handler in handlers:
             try:
                 handler(data)
             except Exception as e:
@@ -53,6 +58,8 @@ class EventBus:
         """异步发射事件，立即返回，不阻塞当前线程。
         适合批量操作场景（如批量导入 100 个文件）。
         """
+        metrics_counters.increment(f"eventbus.emit_async.{event_type}")
+        metrics_counters.increment("eventbus.total_emits")
         with self._lock:
             handlers = list(self._handlers.get(event_type, []))
         for handler in handlers:

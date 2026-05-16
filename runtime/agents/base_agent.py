@@ -1,37 +1,56 @@
-"""Agent 基类 — 所有知识宇宙 Agent 的父类
+# runtime/agents/base_agent.py
 
-Agent 只能通过 Runtime API 访问知识库，不得直接操作存储层。
-"""
-
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path.home() / "taichu"))
-
-from runtime.memory.api import memory as _memory
-from runtime.semantic.runtime import semantic as _semantic
+import asyncio
+import uuid
+from abc import ABC, abstractmethod
 
 
-class BaseAgent:
-    """知识宇宙 Agent 基类"""
+class BaseAgent(ABC):
 
-    def __init__(self, agent_id: str, name: str = ""):
+    def __init__(self, agent_id=None):
+
+        if agent_id is None:
+            agent_id = f"{self.__class__.__name__}_{uuid.uuid4().hex[:8]}"
+
         self.agent_id = agent_id
-        self.name = name or agent_id
-        self.memory = _memory
-        self.semantic = _semantic
+        self.running = False
+        self.current_task = None
+        self.load = 0
+        self.genome = None
 
-    def think(self, query: str) -> list[dict]:
-        """调用语义搜索获取相关知识"""
-        return self.semantic.search(query)
+    def attention_vector(self):
+        if hasattr(self, "profile") and hasattr(self.profile, "semantic_affinity"):
+            return dict(self.profile.semantic_affinity)
+        return {}
 
-    def recall(self, query: str, top_k: int = 5) -> list[dict]:
-        """调用记忆检索"""
-        return self.memory.search(query, top_k=top_k)
+    def adapt_attention(self, ecosystem, node, reward):
 
-    def remember(self, doc_id: str, content: str, metadata: dict = None) -> bool:
-        """存入一条记忆"""
-        return self.memory.store(doc_id, content, metadata)
+        if not hasattr(self, "profile") or not hasattr(node, "task_type"):
+            return
 
-    def get_name(self) -> str:
-        return self.name
+        lr = 0.1
+
+        old_val = self.profile.semantic_affinity.get(node.task_type, 0.5)
+
+        new_val = max(0.0, min(5.0, old_val + lr * reward))
+
+        self.profile.semantic_affinity[node.task_type] = new_val
+
+        if hasattr(self, "genome") and self.genome is not None:
+            self.genome.adjust(node.task_type, reward)
+
+    def update_genome(self, genome):
+        self.genome = genome
+
+    async def start(self):
+        self.running = True
+        while self.running:
+            await asyncio.sleep(0.1)
+            await self.tick()
+
+    async def stop(self):
+        self.running = False
+
+    @abstractmethod
+    async def tick(self):
+        pass
