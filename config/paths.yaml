@@ -17,6 +17,7 @@ knowledge:
   clusters: ~/taichu/knowledge/clusters
   timelines: ~/taichu/knowledge/timelines
   relations: ~/taichu/knowledge/relations
+  agents: ~/taichu/knowledge/agents
 
 storage:
   vector: ~/taichu/storage/vector
@@ -25,6 +26,7 @@ storage:
   cache: ~/taichu/storage/cache
   snapshots: ~/taichu/storage/snapshots
   indexes: ~/taichu/storage/indexes
+  raw: ~/taichu/storage/raw
 
 runtime:
   memory: ~/taichu/runtime/memory
@@ -56,6 +58,7 @@ clients:
   terminal: ~/taichu/clients/terminal
 
 tools: ~/taichu/tools
+scripts: ~/.hermes/skills/wiki-knowledge-base/scripts/kb_models.py
 logs:
   root: ~/taichu/logs
 config: ~/taichu/config

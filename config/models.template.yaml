@@ -1,0 +1,71 @@
+# 模型配置模板 — 复制为 models.yaml 并填入真实密钥
+# models.yaml 已在 .gitignore 中，不会提交到远端
+
+default_provider: volcengine
+api:
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key: YOUR_API_KEY_HERE
+  chat_endpoint: /chat/completions
+models:
+  compile:
+    provider: volcengine
+    model: ep-YYYYMMDDHHSS-xxxxx
+    purpose: 文档编译、RAG 问答、知识推理
+    max_tokens: 4096
+    timeout: 120
+  query:
+    provider: ollama
+    model: qwen2.5:7b
+    purpose: 快速问答
+    max_tokens: 2048
+    timeout: 60
+  reasoning:
+    provider: ollama
+    model: qwq:32b
+    purpose: 复杂推理
+    max_tokens: 4096
+    timeout: 120
+  embedding:
+    provider: volcengine
+    model: ep-YYYYMMDDHHSS-xxxxx
+    purpose: 向量搜索、语义索引
+    dimensions: 2048
+    timeout: 60
+  vision:
+    provider: volcengine
+    model: ep-YYYYMMDDHHSS-xxxxx
+    purpose: 图片分析、OCR
+    max_tokens: 4096
+    timeout: 120
+providers:
+- id: ollama
+  name: Ollama (本地)
+  base_url: http://localhost:11434/v1
+  api_key_from: 无需 API Key
+  chat_endpoint: /v1/chat/completions
+  embed_endpoint: /v1/embeddings
+  doc: https://ollama.ai
+- id: volcengine
+  name: 火山引擎 Doubao
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_from: ARK_API_KEY
+  chat_endpoint: /chat/completions
+  embed_endpoint: /embeddings
+  doc: https://www.volcengine.com/docs/82379
+- id: deepseek
+  name: DeepSeek
+  base_url: https://api.deepseek.com
+  api_key_from: DEEPSEEK_API_KEY
+  chat_endpoint: /chat/completions
+  doc: https://platform.deepseek.com/api-docs
+- id: openrouter
+  name: OpenRouter
+  base_url: https://openrouter.ai/api/v1
+  api_key_from: OPENROUTER_API_KEY
+  chat_endpoint: /chat/completions
+  doc: https://openrouter.ai/docs
+prompts:
+  compile_default: 'You are a knowledge base compiler. Convert the following raw document
+    into a structured markdown wiki article. Use Chinese output.'
+  search_intro: 'You are a knowledge assistant. Answer based on the provided context.
+    Use Chinese. Cite specific articles using [[article-name]] notation.'

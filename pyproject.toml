@@ -1,0 +1,74 @@
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  __pycache__
+  | \.git
+  | \.hermes
+  | target
+  | node_modules
+  | _deprecated
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+skip_glob = ["__pycache__/*", ".git/*", ".hermes/*", "target/*", "node_modules/*", "_deprecated/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+log_cli = true
+log_cli_level = "INFO"
+addopts = "-v --tb=short"
+markers = [
+    "slow: 慢测试（标记后可用 -m 'not slow' 跳过）",
+    "api: 需要后端 API 运行的测试",
+]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "silent"
+warn_unused_ignores = false
+warn_redundant_casts = false
+exclude = [
+    "__pycache__/",
+    ".git/",
+    ".hermes/",
+    "target/",
+    "node_modules/",
+    "runtime/bootstrap.py",
+    "agents/",
+    "attention/",
+]
+
+[tool.bandit]
+exclude_dirs = ["__pycache__", ".git", ".hermes", "target", "node_modules", "references", "knowledge/wiki/_archived", "knowledge/wiki/temp", "knowledge/wiki_backup*", "ingest/raw", "ingest/processed", "storage/raw"]
+skips = ["B101", "B311", "B110", "B104", "B404", "B603", "B112", "B108", "B202", "B608"]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "__pycache__/*",
+    ".git/*",
+    ".hermes/*",
+    "target/*",
+    "node_modules/*",
+    "_deprecated/*",
+    "tests/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

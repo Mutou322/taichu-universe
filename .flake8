@@ -1,0 +1,63 @@
+# 太初知识宇宙 — flake8 配置
+[flake8]
+max-line-length = 120
+extend-ignore = E203, W503, F405, F811, D100, D101, D102, D103, D104, D105, D106, D107, D200, D205, D400, D401, D403
+exclude = __pycache__,.git,.hermes,target,node_modules,_deprecated,knowledge/wiki/_archived,knowledge/references
+per-file-ignores =
+    # Web / API / CLI
+    clients/web/server.py:D103,D205,D400,E501,F401,F841,E402,F811,F541
+    interfaces/rest/server.py:D103,E501,F401,F403,E402,D400
+    interfaces/cli/main.py:D103,E501,F401,D400,F403,F541
+    # Runtime __init__.py re-exports
+    runtime/agents/__init__.py:F401
+    runtime/archive/__init__.py:F401
+    runtime/attention/__init__.py:F401
+    runtime/capabilities/__init__.py:F401
+    runtime/evolution/__init__.py:F401
+    runtime/graph/__init__.py:F401
+    runtime/ingestion/__init__.py:F401
+    runtime/planning/__init__.py:F401
+    runtime/retrieval/__init__.py:F401
+    runtime/scheduler/__init__.py:F401
+    runtime/semantic/__init__.py:F401
+    runtime/specialization/__init__.py:F401
+    # Runtime modules
+    runtime/archive/archive_manager.py:F401
+    runtime/attention/emergent_ecosystem.py:F401
+    runtime/events/bus.py:F401
+    runtime/events/ws_bridge.py:F401,F403
+    runtime/evolution/engine.py:D100,D101,D102,D107,D200,D205,D400,F541
+    runtime/evolution/sandbox.py:F401,F841
+    runtime/gbrain/*.py:D100,D103,D400,F401
+    runtime/memory/__init__.py:D104
+    runtime/memory/api.py:F401,F403,E402
+    runtime/memory/hooks.py:F401,F403
+    runtime/metrics/*.py:D100,D101,D102,D103,D104,D107,D400,F401
+    runtime/__init__.py:D104
+    runtime/phase9_archive_runtime.py:F401,F841,F541
+    runtime/phase9_main.py:F401
+    runtime/retrieval/*.py:D100,D103,D200,D205,D400,D401,E501
+    runtime/runtime_core/__init__.py:D104
+    runtime/scheduler/adaptive_scheduler.py:F401
+    runtime/semantic/*.py:D100,D103,D400
+    runtime/semantic/runtime.py:F401,F403,E402
+    runtime/solver/__init__.py:D104
+    runtime/specialization/role_evolution.py:F541
+    runtime/visualization/__init__.py:D104
+    runtime/visualization/sample_ws_server.py:F824
+    # Tools
+    tools/build_chromadb_index.py:F841,F541
+    tools/compile_openviking_archive.py:F401
+    tools/doubao_manager.py:D400,E402,F841
+    # Storage
+    storage/vector/chroma_store.py:F401
+    storage/snapshots/snapshot_manager.py:E302
+    # Benchmarks / Config / Ingest
+    benchmarks/*.py:D100,D103,D200,D205,D400,D401,E231,E501,F401,F403,F541
+    config/*.py:D100,D103,D200,D205,D400,D401,E501,F401,F403,F405,F541
+    ingest/pipelines/*.py:D100,D103,D104,D200,D205,D400,D401,E501,F401,F541
+    # Tests (sys.path.insert before imports)
+    tests/test_event_bus.py:E402
+    tests/test_graph_expand.py:E402,F401
+    tests/test_metrics_bus.py:E402
+    tests/test_semantic_runtime.py:E402,F401

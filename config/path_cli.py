@@ -7,11 +7,11 @@
   python3 config/path_cli.py get storage.chroma
 """
 
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paths import paths
+
+from config.bootstrap import *
 
 
 def main():

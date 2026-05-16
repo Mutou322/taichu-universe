@@ -4,14 +4,31 @@ __pycache__/
 *.egg-info/
 .venv/
 taichu_venv/
+.mypy_cache/
+.pytest_cache/
 
 # Rust / Tauri
 */target/
 clients/tauri/tauri-ui/src-tauri/target/
 
+# Config with local secrets (template provided)
+config/models.yaml
+
+# Knowledge base — wiki content only (project code under knowledge/ is tracked)
+knowledge/wiki/**/*.md
+knowledge/wiki/**/*.txt
+knowledge/wiki/**/*.json
+knowledge/wiki/**/*.js
+knowledge/wiki/requirements.txt
+knowledge/wiki/_archived/
+knowledge/references/
+knowledge/wiki_backup*/
+
 # Runtime data
 storage/vector/chroma/
 storage/snapshots/
+storage/raw/
+storage/cache/
 logs/
 ingest/raw/
 ingest/inbox/
@@ -26,8 +43,9 @@ ingest/failed/
 .DS_Store
 Thumbs.db
 
-# Large binaries
+# Build artifacts
 *.sqlite3
 *.so
 *.dylib
 vis-network.min.js
+.vector_index.json
