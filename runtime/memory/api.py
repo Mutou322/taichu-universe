@@ -5,10 +5,9 @@
 from pathlib import Path
 from typing import Optional
 
-import sys
-sys.path.insert(0, str(Path.home() / "taichu" / "config"))
-sys.path.insert(0, str(Path.home() / "taichu"))
 from paths import paths
+
+from config.bootstrap import *
 
 
 class MemoryRuntime:
@@ -25,12 +24,14 @@ class MemoryRuntime:
     def _get_store(self):
         if self._store is None:
             from storage.vector.chroma_store import ChromaStore
+
             self._store = ChromaStore(str(self.chroma_dir))
         return self._store
 
     def _get_embedder(self):
         if self._embedder is None:
             from storage.embeddings.embedder import Embedder
+
             self._embedder = Embedder()
         return self._embedder
 
@@ -38,30 +39,62 @@ class MemoryRuntime:
 
     def search(self, query: str, top_k: int = 10) -> list[dict]:
         """语义搜索知识库，返回 [{title, score, text}, ...]"""
-        embedder = self._get_embedder()
-        store = self._get_store()
-        q_emb = embedder.embed(query)
-        results = None
-        # 依次尝试多个 collection
-        for col in ["kb_articles", "evomind", "taichu_memory"]:
-            try:
-                results = store.query_by_embedding(q_emb, limit=top_k, collection=col)
-                if results.get("ids") and results["ids"][0]:
-                    break
-            except Exception:
-                continue
+        # 加 trace
+        from runtime.metrics.collector import metrics_collector
+        from runtime.metrics.counters import metrics_counters
+        from runtime.metrics.retrieval_latency import RetrievalMetrics
+        from runtime.metrics.timers import metric_timer
+        from runtime.metrics.tracing import runtime_tracer
+
+        trace = runtime_tracer.start("retrieval_pipeline")
+
+        # 嵌入阶段
+        with metric_timer("embedding", query=query[:30]):
+            embedder = self._get_embedder()
+            q_emb = embedder.embed(query)
+
+        # 搜索阶段
+        with metric_timer("vector_search", query=query[:30]):
+            store = self._get_store()
+            results = None
+            for col in ["kb_articles", "evomind", "taichu_memory"]:
+                try:
+                    results = store.query_by_embedding(q_emb, limit=top_k, collection=col)
+                    if results.get("ids") and results["ids"][0]:
+                        break
+                except Exception:
+                    continue
+
+        metrics_counters.increment("searches")
 
         if results is None or not results["ids"] or not results["ids"][0]:
+            runtime_tracer.finish(trace)
+            metrics_counters.increment("empty_results")
             return []
 
         items = []
         for i in range(len(results["ids"][0])):
             meta = results["metadatas"][0][i] if results["metadatas"] else {}
-            items.append({
-                "title": meta.get("source", results["ids"][0][i]),
-                "score": 1.0 / (1.0 + results["distances"][0][i]) if results["distances"] else 0.0,
-                "text": results["documents"][0][i] if results["documents"] else "",
-            })
+            items.append(
+                {
+                    "title": meta.get("source", results["ids"][0][i]),
+                    "score": 1.0 / (1.0 + results["distances"][0][i]) if results["distances"] else 0.0,
+                    "text": results["documents"][0][i] if results["documents"] else "",
+                }
+            )
+
+        runtime_tracer.finish(trace)
+        metrics_counters.increment("results_found", len(items))
+
+        # 记录检索指标
+        metrics_collector.record_retrieval(
+            RetrievalMetrics(
+                query=query[:50],
+                total_ms=trace.duration_ms(),
+                result_count=len(items),
+            )
+        )
+
         return items
 
     # ── 存储 ──
@@ -71,11 +104,6 @@ class MemoryRuntime:
         try:
             store = self._get_store()
             store.add(doc_id, text, metadata or {})
-
-            # 触发事件
-            import importlib
-            hooks = importlib.import_module("runtime.memory.hooks")
-            hooks.on_memory_store(doc_id, text, metadata)
 
             return True
         except Exception as e:
@@ -93,11 +121,6 @@ class MemoryRuntime:
         try:
             self._get_store().delete(doc_id)
 
-            # 触发事件
-            import importlib
-            hooks = importlib.import_module("runtime.memory.hooks")
-            hooks.on_memory_delete(doc_id)
-
             return True
         except Exception as e:
             print(f"[MemoryRuntime] delete 失败: {e}")
@@ -113,5 +136,7 @@ class MemoryRuntime:
             return 0
 
 
-# 单例
-memory = MemoryRuntime()
+# 单例（由 runtime.bootstrap 统一管理，此处仅作导入兼容）
+from runtime.bootstrap import get_memory as _get_memory
+
+memory = _get_memory()

@@ -1,0 +1,1 @@
+Attention collapse in transformer models. KV cache optimization document 0. Scaling laws for large language models.

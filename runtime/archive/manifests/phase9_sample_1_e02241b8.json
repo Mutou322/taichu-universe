@@ -1,0 +1,15 @@
+{
+  "archive_id": "phase9_sample_1_e02241b8",
+  "original_name": "phase9_sample_1.txt",
+  "stored_name": "runtime/archive/raw/phase9_sample_1_e02241b8.txt",
+  "source_url": "/tmp/phase9_sample_1.txt",
+  "sha256": "e02241b80e090d34537dc5e9968d0d1bbcdbf5f20ab1ce84a5a77b0ff2ec7d03",
+  "created_at": "2026-05-13T05:40:58.877039",
+  "version": 2,
+  "chunks": [],
+  "embedding_ids": [
+    "emb_phase9_sample_1_e02241b8"
+  ],
+  "graph_nodes": [],
+  "agent_annotations": []
+}
