@@ -1,3 +1,5 @@
+[English](KB_ACCESS_PROTOCOL.en.md) · **中文**
+
 # 太初知识宇宙 — 多 Agent 使用协议
 
 > 任何 Agent / 子代理 / 外部工具接入前，必须阅读此协议。
