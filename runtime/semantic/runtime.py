@@ -8,22 +8,16 @@
 """
 
 from collections import defaultdict
-from pathlib import Path
-from typing import Optional
 
 from paths import paths
 
-from config.bootstrap import *
 from knowledge.graph.builder import GraphBuilder
-
-# RelationType 暂未使用，保留 import 注释以供后续扩展
-# from knowledge.relations.relation import RelationType
 
 
 class SemanticRuntime:
     """语义运行时 API — Layer 2 的对外接口"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.builder = GraphBuilder()
         self._graph_cache = None
         self._adjacency: dict[str, set[str]] = {}
@@ -50,11 +44,13 @@ class SemanticRuntime:
         wiki_dir = paths.wiki_dir
         self._graph_cache = self.builder.build(str(wiki_dir))
         self._build_adjacency()
+        assert self._graph_cache is not None
         return self._graph_cache
 
-    def _ensure_graph(self):
+    def _ensure_graph(self) -> dict:
         if self._graph_cache is None:
-            return self.build_graph()
+            result = self.build_graph()
+            return result if result is not None else {}
         return self._graph_cache
 
     # ── 查询 API ──
@@ -74,6 +70,7 @@ class SemanticRuntime:
     def related(self, node_id: str) -> list[dict]:
         """获取某个节点的关联节点（O(1) 查索引）"""
         self._ensure_graph()
+        assert self._graph_cache is not None
         related_ids = self._adjacency.get(node_id, set())
         node_map = {n.id: n for n in self._graph_cache["nodes"]}
         results = []
@@ -113,7 +110,7 @@ class SemanticRuntime:
         self._ensure_graph()
         return self._weight_map
 
-    def refresh(self):
+    def refresh(self) -> dict:
         """强制重建图谱"""
         self._graph_cache = None
         self._adjacency = {}

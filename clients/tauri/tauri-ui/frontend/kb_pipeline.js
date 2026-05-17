@@ -23,7 +23,7 @@ function _getAgentPanel(agentId) {
     panel.style.cssText = 'margin-bottom:6px;padding:4px;border:1px solid var(--border);border-radius:4px;border-left:3px solid ' + _agentColor(agentId) + ';';
     panel.innerHTML = '<div style="font-size:11px;font-weight:600;margin-bottom:2px;color:' + _agentColor(agentId) + ';">' + agentId + '</div><div id="timers-' + agentId + '"></div>';
     container.appendChild(panel);
-    _pipelinePanels[agentId] = panel.querySelector('#' + agentId.replace(/[^a-zA-Z0-9]/g,'') + '-timers');
+    _pipelinePanels[agentId] = panel.querySelector('#timers-' + agentId);
   }
   return _pipelinePanels[agentId];
 }

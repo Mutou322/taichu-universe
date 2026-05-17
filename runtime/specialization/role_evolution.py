@@ -1,9 +1,18 @@
-# runtime/specialization/role_evolution.py
+"""Evolves agent role based on expertise milestones."""
+
+import logging
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class RoleEvolutionEngine:
+    """Promotes agents through evolution stages based on accumulated expertise."""
 
-    def evolve(self, agent):
+    def evolve(self, agent: Any) -> None:
+
+        if not hasattr(agent, "profile"):
+            return
 
         profile = agent.profile
 
@@ -11,18 +20,10 @@ class RoleEvolutionEngine:
 
             profile.evolution_stage = 2
 
-            print(
-                f"[Evolution]",
-                agent.agent_id,
-                "-> Specialist",
-            )
+            logger.info("[Evolution] %s -> Specialist", agent.agent_id)
 
-        if profile.expertise_score > 10 and profile.evolution_stage == 2:
+        elif profile.expertise_score > 10 and profile.evolution_stage == 2:
 
             profile.evolution_stage = 3
 
-            print(
-                f"[Evolution]",
-                agent.agent_id,
-                "-> Expert",
-            )
+            logger.info("[Evolution] %s -> Expert", agent.agent_id)

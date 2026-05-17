@@ -20,6 +20,15 @@ _cache: dict[str, tuple[float, dict]] = {}
 
 SKIP_FILES = {"index.md", "README.md", "base.md"}
 
+# Scoring constants
+SOURCE_PRESENCE_BONUS = 0.3
+MAX_CITATION_SCORE = 0.2
+
+# Content length thresholds (character count)
+BODY_LEN_LONG = 5000
+BODY_LEN_MEDIUM = 2000
+BODY_LEN_SHORT = 500
+
 
 def _split_frontmatter(text: str) -> tuple[dict, str]:
     """Split markdown text into (frontmatter_dict, body).
@@ -130,11 +139,11 @@ def compute_confidence(filepath: Path) -> dict:
     fm, body = _split_frontmatter(text)
 
     # Factor 1: Source field presence in frontmatter
-    source_presence = 0.3 if "source" in fm else 0.0
+    source_presence = SOURCE_PRESENCE_BONUS if "source" in fm else 0.0
 
     # Factor 2: Source citations (lines starting with source::)
     citation_lines = len(re.findall(r"^source::", body, re.MULTILINE))
-    source_citations = round(min(citation_lines / 10 * 0.2, 0.2), 4)
+    source_citations = round(min(citation_lines / 10 * MAX_CITATION_SCORE, MAX_CITATION_SCORE), 4)
 
     # Factor 3: Content structure (## heading lines)
     h2_count = len(re.findall(r"^##\s", body, re.MULTILINE))
@@ -156,11 +165,11 @@ def compute_confidence(filepath: Path) -> dict:
 
     # Factor 5: Content length
     body_len = len(body)
-    if body_len > 5000:
+    if body_len > BODY_LEN_LONG:
         content_length = 0.15
-    elif body_len > 2000:
+    elif body_len > BODY_LEN_MEDIUM:
         content_length = 0.1
-    elif body_len > 500:
+    elif body_len > BODY_LEN_SHORT:
         content_length = 0.05
     else:
         content_length = 0.0

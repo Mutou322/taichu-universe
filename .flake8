@@ -4,6 +4,9 @@ max-line-length = 120
 extend-ignore = E203, W503, F405, F811, D100, D101, D102, D103, D104, D105, D106, D107, D200, D205, D400, D401, D403
 exclude = __pycache__,.git,.hermes,target,node_modules,_deprecated,knowledge/wiki/_archived,knowledge/references
 per-file-ignores =
+    # Interfaces
+    interfaces/rest/server.py:E302,E402
+    interfaces/websocket/server.py:E402
     # Web / API / CLI
     clients/web/server.py:D103,D205,D400,E501,F401,F841,E402,F811,F541
     interfaces/rest/server.py:D103,E501,F401,F403,E402,D400

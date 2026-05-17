@@ -1,10 +1,14 @@
-# runtime/visualization/sample_ws_server.py
+"""可视化 WebSocket 测试服务，推送进化指标、注意力图、语义引力等模拟数据"""
 
 import asyncio
 import json
+import logging
 import random
+from typing import Any
 
 import websockets
+
+logger = logging.getLogger(__name__)
 
 PORT = 8767
 
@@ -16,18 +20,17 @@ cluster_count = 5
 sleep_time = 1.0
 
 
-def generate_nodes():
+def generate_nodes() -> list[str]:
     return [f"Node_{i}" for i in range(node_count)]
 
 
-def generate_agents():
+def generate_agents() -> list[str]:
     return [f"Agent_{i}" for i in range(agent_count)]
 
 
-async def send_metrics(websocket):
+async def send_metrics(websocket: Any) -> None:
 
     tick = 0
-    global shard_count, agent_count, node_count, sleep_time
 
     while True:
 
@@ -89,9 +92,7 @@ async def send_metrics(websocket):
         await asyncio.sleep(sleep_time)
 
 
-async def handler(websocket):
-
-    global shard_count, agent_count, node_count, sleep_time
+async def handler(websocket: Any) -> None:
 
     async def metrics_sender():
         await send_metrics(websocket)
@@ -109,13 +110,15 @@ async def handler(websocket):
                     node_count = params.get("nodeCount", node_count)
                     speed = params.get("evolutionSpeed", 1.0)
                     sleep_time = 1.0 / max(speed, 0.1)
-                    print(
-                        f"[Control] Updated: shards={shard_count}, "
-                        f"agents={agent_count}, nodes={node_count}, "
-                        f"speed={speed}/s"
+                    logger.info(
+                        "Control Updated: shards=%s, agents=%s, nodes=%s, speed=%s/s",
+                        shard_count,
+                        agent_count,
+                        node_count,
+                        speed,
                     )
             except json.JSONDecodeError:
-                pass
+                logger.debug("收到非 JSON 控制消息，已忽略")
 
     await asyncio.gather(
         metrics_sender(),
@@ -123,7 +126,7 @@ async def handler(websocket):
     )
 
 
-async def main():
+async def main() -> None:
 
     print(f"Sample WS server running on ws://localhost:{PORT}")
     print("Supports control_update messages from control_panel.js")

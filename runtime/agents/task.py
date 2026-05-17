@@ -1,4 +1,4 @@
-# runtime/agents/task.py
+"""Task data model for runtime task representation."""
 
 import time
 import uuid
@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 
 @dataclass
 class RuntimeTask:
+    """Dataclass representing a runtime task with type, payload, and metadata."""
+
     task_type: str
     payload: dict
 

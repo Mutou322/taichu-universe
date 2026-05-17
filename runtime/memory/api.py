@@ -1,19 +1,20 @@
-# 太初-Memory Runtime API
-# 所有 Agent / UI 通过此 API 读写知识库
-# 底层调 storage/ 层（ChromaStore + Embedder），不直接操作 ChromaDB
+"""记忆运行时 API — 统一的知识库读写入口，底层委托 storage 层"""
 
-from pathlib import Path
+import logging
 from typing import Optional
 
 from paths import paths
 
-from config.bootstrap import *
+logger = logging.getLogger(__name__)
+
+# ── 指标记录常量 ──
+METRIC_QUERY_PREVIEW_LENGTH = 50
 
 
 class MemoryRuntime:
     """统一记忆运行时 API"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._store = None
         self._embedder = None
         self.wiki_dir = paths.wiki_dir
@@ -62,7 +63,8 @@ class MemoryRuntime:
                     results = store.query_by_embedding(q_emb, limit=top_k, collection=col)
                     if results.get("ids") and results["ids"][0]:
                         break
-                except Exception:
+                except Exception as e:
+                    logger.debug("search query over collection %s failed: %s", col, e)
                     continue
 
         metrics_counters.increment("searches")
@@ -89,7 +91,7 @@ class MemoryRuntime:
         # 记录检索指标
         metrics_collector.record_retrieval(
             RetrievalMetrics(
-                query=query[:50],
+                query=query[:METRIC_QUERY_PREVIEW_LENGTH],
                 total_ms=trace.duration_ms(),
                 result_count=len(items),
             )
@@ -107,7 +109,7 @@ class MemoryRuntime:
 
             return True
         except Exception as e:
-            print(f"[MemoryRuntime] store 失败: {e}")
+            logger.warning("store 失败: %s", e)
             return False
 
     # ── 嵌入 ──
@@ -123,7 +125,7 @@ class MemoryRuntime:
 
             return True
         except Exception as e:
-            print(f"[MemoryRuntime] delete 失败: {e}")
+            logger.warning("delete 失败: %s", e)
             return False
 
     # ── 统计 ──
@@ -132,7 +134,8 @@ class MemoryRuntime:
     def count(self) -> int:
         try:
             return self._get_store().count
-        except Exception:
+        except Exception as e:
+            logger.warning("count failed: %s", e)
             return 0
 
 

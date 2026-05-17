@@ -5,9 +5,8 @@
 此文件作为桥接定义层。
 """
 
-from pathlib import Path
+from typing import Callable
 
-from config.bootstrap import *
 from runtime.events.bus import bus
 
 # 定义事件 → WebSocket 的映射关系（供 ws server 注册使用）
@@ -27,7 +26,7 @@ EVENT_WS_MAP = {
 }
 
 
-def register_ws_handlers(broadcast_fn):
+def register_ws_handlers(broadcast_fn: Callable) -> None:
     """注册所有事件处理器到 WebSocket 广播函数"""
     for event in EVENT_WS_MAP:
         bus.on(event, lambda data, ev=event: broadcast_fn(ev, data))

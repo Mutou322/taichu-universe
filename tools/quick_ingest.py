@@ -11,14 +11,17 @@
 
 import argparse
 import glob as _glob
+import os
 import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 
+_TAICHU_HOME = Path(os.environ.get("TAICHU_HOME", str(Path.home() / "taichu"))).expanduser().resolve()
+
 # ── 路径初始化 ──────────────────────────────────────────────
-sys.path.insert(0, str(Path.home() / "taichu"))
+sys.path.insert(0, str(_TAICHU_HOME))
 from config.paths import paths  # noqa: E402
 
 # 支持的文件扩展名（与 ingest/pipelines/__init__.py 保持同步）
@@ -50,7 +53,7 @@ SUPPORTED: set[str] = {
     ".toml",
 }
 
-DOUBAO_PATH = Path.home() / "taichu" / "tools" / "doubao_manager.py"
+DOUBAO_PATH = _TAICHU_HOME / "tools" / "doubao_manager.py"
 POLL_INTERVAL = 5  # watch 模式轮询间隔（秒）
 COMPILE_TIMEOUT = 300  # 编译超时（秒）
 
@@ -90,7 +93,7 @@ def _run_doubao_manager() -> tuple[bool, str]:
             capture_output=True,
             text=True,
             timeout=COMPILE_TIMEOUT,
-            cwd=str(Path.home() / "taichu"),
+            cwd=str(_TAICHU_HOME),
         )
         output = result.stdout.strip()
         if result.returncode == 0:

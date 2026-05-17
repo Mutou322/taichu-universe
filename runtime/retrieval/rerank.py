@@ -4,16 +4,19 @@ runtime/retrieval/rerank.py — 检索结果二次排序
 支持 graph-aware rerank，兼容统一的 graph_centrality 字段。
 """
 
-from typing import Dict, List
-
 from runtime.metrics.timers import metric_timer
 
+# ── Rerank 权重 ──
+RERANK_FINAL_SCORE_WEIGHT = 0.6
+RERANK_GRAPH_CENTRALITY_WEIGHT = 0.4
+RERANK_DEFAULT_SCORE = 0.5
 
-def rerank_docs(docs: List[Dict], query: str = "") -> List[Dict]:
+
+def rerank_docs(docs: list[dict], query: str = "") -> list[dict]:
     """
     Cross-encoder / graph-aware rerank。
 
-    排序权重: final_score(0.6) + graph_centrality(0.4)
+    排序权重: final_score(RERANK_FINAL_SCORE_WEIGHT) + graph_centrality(RERANK_GRAPH_CENTRALITY_WEIGHT)
     """
     if not docs:
         return docs
@@ -26,7 +29,9 @@ def rerank_docs(docs: List[Dict], query: str = "") -> List[Dict]:
 
     with metric_timer("rerank", query=query[:30]):
         for doc in docs:
-            doc["rerank_score"] = 0.6 * doc.get("final_score", 0.5) + 0.4 * doc.get("graph_centrality", 0.5)
+            doc["rerank_score"] = RERANK_FINAL_SCORE_WEIGHT * doc.get(
+                "final_score", RERANK_DEFAULT_SCORE
+            ) + RERANK_GRAPH_CENTRALITY_WEIGHT * doc.get("graph_centrality", RERANK_DEFAULT_SCORE)
 
         docs.sort(key=lambda x: x["rerank_score"], reverse=True)
 

@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 """验证 ChromaDB 索引可查询"""
-import sys
+import os
 from pathlib import Path
 
-TAICHU_HOME = Path.home() / "taichu"
-sys.path.insert(0, str(TAICHU_HOME))
-sys.path.insert(0, str(TAICHU_HOME / "config"))
+import chromadb
+from sentence_transformers import SentenceTransformer
 
-import chromadb  # noqa: E402
-from sentence_transformers import SentenceTransformer  # noqa: E402
-
-from config.paths import paths  # noqa: E402
-
-DB_PATH = str(paths.chroma_dir)
+_TAICHU_HOME = Path(os.environ.get("TAICHU_HOME", str(Path.home() / "taichu"))).expanduser().resolve()
+DB_PATH = str(_TAICHU_HOME / "storage" / "vector" / "chroma")
 
 model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 client = chromadb.PersistentClient(path=DB_PATH)

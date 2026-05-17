@@ -59,12 +59,16 @@ def _unzip(path: Path, dest: Path) -> bool:
 
 def _untar(path: Path, dest: Path) -> bool:
     try:
+        import os
         import tarfile
 
         def _safe_filter(members):
             for m in members:
-                # 防止路径穿越
-                m.path = Path(m.path).name  # 只保留文件名，丢弃目录结构
+                # 防止路径穿越，但保留相对目录结构
+                m.path = os.path.normpath(m.path).lstrip("/")
+                if m.path.startswith("..") or os.path.isabs(m.path):
+                    logger.warning("跳过危险的 tar 条目: %s", m.path)
+                    continue
                 yield m
 
         with tarfile.open(path, "r:*") as tar:

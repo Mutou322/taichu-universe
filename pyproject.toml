@@ -48,13 +48,16 @@ exclude = [
     ".hermes/",
     "target/",
     "node_modules/",
+    "_deprecated/",
     "runtime/bootstrap.py",
+    "config/bootstrap.py",
     "agents/",
     "attention/",
+    "storage/vector/",
 ]
 
 [tool.bandit]
-exclude_dirs = ["__pycache__", ".git", ".hermes", "target", "node_modules", "references", "knowledge/wiki/_archived", "knowledge/wiki/temp", "knowledge/wiki_backup*", "ingest/raw", "ingest/processed", "storage/raw"]
+exclude_dirs = ["__pycache__", ".git", ".hermes", "target", "node_modules", "references", "_deprecated", "knowledge/wiki/_archived", "knowledge/wiki/temp", "ingest/raw", "ingest/processed", "storage/raw"]
 skips = ["B101", "B311", "B110", "B104", "B404", "B603", "B112", "B108", "B202", "B608"]
 
 [tool.coverage.run]

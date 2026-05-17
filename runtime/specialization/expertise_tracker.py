@@ -1,13 +1,19 @@
-# runtime/specialization/expertise_tracker.py
+"""Tracks agent expertise growth and concept exposure."""
+
+from typing import Any
 
 
 class ExpertiseTracker:
+    """Updates agent expertise score and semantic affinity based on completed tasks."""
 
     def update_expertise(
         self,
-        agent,
-        concepts,
-    ):
+        agent: Any,
+        concepts: list[str],
+    ) -> None:
+
+        if not hasattr(agent, "profile"):
+            return
 
         profile = agent.profile
 
@@ -17,4 +23,4 @@ class ExpertiseTracker:
 
         for c in concepts:
 
-            profile.semantic_affinity[c] = profile.semantic_affinity.get(c, 0.0) + 0.2
+            profile.semantic_affinity[c] = min(profile.semantic_affinity.get(c, 0.0) + 0.2, 5.0)

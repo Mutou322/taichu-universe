@@ -7,7 +7,7 @@ use kb::KnowledgeBase;
 use tauri::{Emitter, Manager};
 
 fn get_local_kb() -> KnowledgeBase {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/mutou".to_string());
     KnowledgeBase::new(
         &format!("{}/taichu/knowledge/wiki", home),
         &format!("{}/taichu/ingest/raw", home),

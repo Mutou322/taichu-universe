@@ -5,7 +5,10 @@
 避免字段名不一致（如 graph_score vs graph_centrality）和模块缺失崩溃。
 """
 
+import logging
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════
 # 图谱 Schema
@@ -134,5 +137,6 @@ def safe_import(module_name: str, fallback: Any = None) -> Any:
         return importlib.import_module(module_name)
     except ImportError:
         return fallback
-    except Exception:
+    except Exception as e:
+        logger.debug("safe_import(%s) failed: %s", module_name, e)
         return fallback

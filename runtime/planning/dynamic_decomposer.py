@@ -1,11 +1,14 @@
+"""基于查询语义的动态任务分解器。"""
+
 # runtime/planning/dynamic_decomposer.py
 
 from runtime.planning.workflow_graph import WorkflowGraph, WorkflowNode
 
 
 class DynamicTaskDecomposer:
+    """根据查询关键词动态构建工作流 DAG。"""
 
-    def decompose(self, query):
+    def decompose(self, query: str) -> WorkflowGraph:
 
         graph = WorkflowGraph()
 

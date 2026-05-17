@@ -6,12 +6,15 @@
 使用 ChromaDB 的 evomind 集合（代码中已引用但未实际使用）。
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
 from config.paths import paths
 from storage.vector.chroma_store import ChromaStore
+
+logger = logging.getLogger(__name__)
 
 # ── 常量 ──
 
@@ -34,7 +37,7 @@ TYPE_USER_PREFERENCE = "user_preference"
 class SessionMemory:
     """跨会话记忆管理器"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._store: Optional[ChromaStore] = None
         self._embedder = None
 
@@ -290,8 +293,8 @@ class SessionMemory:
         for m in memories:
             try:
                 self._get_store().delete(m["id"])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to delete memory: %s", e)
         return len(memories)
 
 

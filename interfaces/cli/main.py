@@ -7,9 +7,7 @@
 """
 
 import sys
-from pathlib import Path
 
-from config.bootstrap import *
 from runtime.memory.api import memory
 from runtime.semantic.runtime import semantic
 
@@ -28,7 +26,7 @@ def cmd_search(query: str, limit: int = 5):
 
 
 def cmd_status():
-    print(f"知识库状态:")
+    print("知识库状态:")
     print(f"  图谱节点: {semantic.node_count}")
     print(f"  图谱边数: {semantic.edge_count}")
     print(f"  记忆条目: {memory.count}")

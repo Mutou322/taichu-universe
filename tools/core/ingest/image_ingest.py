@@ -1,3 +1,5 @@
+"""图片 Ingestion — 使用视觉模型将图片分析为结构化文本"""
+
 from pathlib import Path
 
 from core.vision.doubao_vision import vision_analyze
@@ -17,6 +19,7 @@ VISION_PROMPT = """
 
 
 def ingest_image(path: Path) -> IngestResult:
+    """调用视觉模型分析图片并返回结构化文本"""
     result = vision_analyze(
         image_path=str(path),
         prompt=VISION_PROMPT,

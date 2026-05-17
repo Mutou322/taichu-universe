@@ -2,18 +2,19 @@
 """
 将 OpenViking 存档数据编译为 wiki 文档格式并写入 wiki/ 目录
 """
+import os
 import shutil
 from pathlib import Path
 
-VAULT = Path.home() / "taichu_knowledge"
-ARCHIVES = VAULT / "archives"
-WIKI = VAULT / "wiki"
+_TAICHU_HOME = Path(os.environ.get("TAICHU_HOME", str(Path.home() / "taichu"))).expanduser().resolve()
+ARCHIVES = _TAICHU_HOME / "archives"
+WIKI = _TAICHU_HOME / "knowledge" / "wiki"
 OV_SESSIONS = ARCHIVES / "openviking-sessions"
 OV_RESOURCES = ARCHIVES / "openviking-resources"
 DEST_DIR = WIKI / "_archived"
 
 
-def compile_sessions():
+def compile_sessions() -> None:
     """将会话摘要编译为 wiki 文档"""
     dest = DEST_DIR / "sessions"
     dest.mkdir(parents=True, exist_ok=True)
@@ -45,7 +46,7 @@ def compile_sessions():
     print(f"  会话: {len(sessions)} 个编译完成")
 
 
-def compile_resources():
+def compile_resources() -> None:
     """将学习资源编译为 wiki 文档"""
     dest = DEST_DIR / "resources"
     dest.mkdir(parents=True, exist_ok=True)
@@ -92,16 +93,14 @@ def compile_resources():
     print(f"  资源: {compiled} 个文档编译完成")
 
 
-def cleanup_archives_dir():
+def cleanup_archives_dir() -> None:
     """迁移完成后清理 archives/ 临时目录"""
-    import shutil
-
     if ARCHIVES.exists():
         shutil.rmtree(ARCHIVES)
         print("  archives/ 临时目录已清理")
 
 
-def main():
+def main() -> None:
     print("编译 OpenViking 数据到 wiki/...")
     print()
     compile_sessions()

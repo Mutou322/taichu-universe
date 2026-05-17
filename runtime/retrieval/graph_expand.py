@@ -40,7 +40,7 @@ def _prune_low_score(neighbors: list[tuple], threshold: float = 0.3) -> list[str
     return [nid for nid, w in neighbors if w >= threshold]
 
 
-def _apply_decay(node_id: str, factor: float = 0.95, interval: float = 3600):
+def _apply_decay(node_id: str, factor: float = 0.95, interval: float = 3600) -> float:
     """B. 衰减：长期不访问的节点降低优先级"""
     now = time.time()
     last = _node_access.get(node_id, 0)
@@ -54,7 +54,7 @@ def _neighbors_with_decay(node_id: str, decay_threshold: float = 0.5) -> list[st
     """获取邻居并应用 low 分修剪 和 访问衰减"""
     raw = _neighbors_with_weight(node_id)
     # Pruning: 低权重修剪
-    pruned = _prune_low_score(raw, threshold=0.3)
+    pruned = _prune_low_score(raw)
     # Decay: 长期不访问的节点可能被过滤
     result = []
     for nid in pruned:
@@ -70,7 +70,7 @@ def expand_graph(
     max_neighbors: int = 5,
     max_nodes_per_query: int = 50,
     max_edges_per_query: int = 200,
-) -> list:
+) -> list[dict]:
     """
     图谱扩展，带完整的爆炸控制。
 

@@ -1,3 +1,5 @@
+"""Ingestion 路由 — 根据文件类型分派到对应的 Ingest 管道"""
+
 from pathlib import Path
 
 from .image_ingest import ingest_image
@@ -12,6 +14,7 @@ OFFICE_EXT = {".docx", ".pptx", ".xlsx", ".html", ".htm", ".epub", ".rtf"}
 
 
 def ingest_file(path: str | Path) -> IngestResult:
+    """按扩展名将文件路由到 text/image/pdf 管道并返回结构化结果"""
     path = Path(path)
     ext = path.suffix.lower()
 

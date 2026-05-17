@@ -1,13 +1,15 @@
-# runtime/agents/base_agent.py
+"""Abstract base class for all runtime agents."""
 
 import asyncio
 import uuid
 from abc import ABC, abstractmethod
+from typing import Any
 
 
 class BaseAgent(ABC):
+    """Abstract base agent with lifecycle (start/stop), task handling, and attention adaptation."""
 
-    def __init__(self, agent_id=None):
+    def __init__(self, agent_id: str | None = None) -> None:
 
         if agent_id is None:
             agent_id = f"{self.__class__.__name__}_{uuid.uuid4().hex[:8]}"
@@ -18,12 +20,12 @@ class BaseAgent(ABC):
         self.load = 0
         self.genome = None
 
-    def attention_vector(self):
+    def attention_vector(self) -> dict[str, float]:
         if hasattr(self, "profile") and hasattr(self.profile, "semantic_affinity"):
             return dict(self.profile.semantic_affinity)
         return {}
 
-    def adapt_attention(self, ecosystem, node, reward):
+    def adapt_attention(self, ecosystem: Any, node: Any, reward: float) -> None:
 
         if not hasattr(self, "profile") or not hasattr(node, "task_type"):
             return
@@ -39,18 +41,18 @@ class BaseAgent(ABC):
         if hasattr(self, "genome") and self.genome is not None:
             self.genome.adjust(node.task_type, reward)
 
-    def update_genome(self, genome):
+    def update_genome(self, genome: Any) -> None:
         self.genome = genome
 
-    async def start(self):
+    async def start(self) -> None:
         self.running = True
         while self.running:
             await asyncio.sleep(0.1)
             await self.tick()
 
-    async def stop(self):
+    async def stop(self) -> None:
         self.running = False
 
     @abstractmethod
-    async def tick(self):
+    async def tick(self) -> None:
         pass

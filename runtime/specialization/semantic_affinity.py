@@ -1,13 +1,19 @@
-# runtime/specialization/semantic_affinity.py
+"""Computes semantic affinity between agents and task concepts."""
+
+from typing import Any
 
 
 class SemanticAffinityEngine:
+    """Calculates affinity score using semantic affinity vectors and domain matching."""
 
     def compute_affinity(
         self,
-        agent,
-        concepts,
-    ):
+        agent: Any,
+        concepts: list[str],
+    ) -> float:
+
+        if not hasattr(agent, "profile"):
+            return 0.0
 
         profile = agent.profile
 

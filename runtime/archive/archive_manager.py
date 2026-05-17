@@ -1,16 +1,19 @@
+"""归档管理器，文件的存储、清单、溯源和指纹管理。"""
+
 # runtime/archive/archive_manager.py
 
 import hashlib
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 from shutil import copy2
+from typing import Any
 
 
 class ArchiveManager:
+    """管理文件归档的完整生命周期：存储（含 SHA256）、清单、溯源元数据和指纹验证。"""
 
-    def __init__(self, archive_root="runtime/archive"):
+    def __init__(self, archive_root: str = "runtime/archive") -> None:
 
         self.root = Path(archive_root)
         self.raw_dir = self.root / "raw"
@@ -28,24 +31,24 @@ class ArchiveManager:
         ]:
             d.mkdir(parents=True, exist_ok=True)
 
-    def store_file(self, filepath, source_url=None):
+    def store_file(self, filepath: str | Path, source_url: str | None = None) -> str:
 
-        filepath = Path(filepath)
+        filepath_obj = Path(filepath)
 
-        if not filepath.exists():
-            raise FileNotFoundError(f"{filepath} does not exist")
+        if not filepath_obj.exists():
+            raise FileNotFoundError(f"{filepath_obj} does not exist")
 
-        sha256 = self._compute_sha256(filepath)
+        sha256 = self._compute_sha256(filepath_obj)
 
-        archive_id = f"{filepath.stem}_{sha256[:8]}"
+        archive_id = f"{filepath_obj.stem}_{sha256[:8]}"
 
-        dest_path = self.raw_dir / f"{archive_id}{filepath.suffix}"
+        dest_path = self.raw_dir / f"{archive_id}{filepath_obj.suffix}"
 
-        copy2(filepath, dest_path)
+        copy2(filepath_obj, dest_path)
 
         manifest = {
             "archive_id": archive_id,
-            "original_name": filepath.name,
+            "original_name": filepath_obj.name,
             "stored_name": str(dest_path),
             "source_url": source_url,
             "sha256": sha256,
@@ -83,7 +86,7 @@ class ArchiveManager:
 
         return archive_id
 
-    def load_manifest(self, archive_id):
+    def load_manifest(self, archive_id: str) -> dict[str, Any] | None:
 
         manifest_path = self.manifest_dir / f"{archive_id}.json"
 
@@ -93,7 +96,7 @@ class ArchiveManager:
         with open(manifest_path, "r") as f:
             return json.load(f)
 
-    def update_manifest(self, archive_id, **kwargs):
+    def update_manifest(self, archive_id: str, **kwargs: Any) -> None:
 
         manifest = self.load_manifest(archive_id)
 
@@ -108,7 +111,7 @@ class ArchiveManager:
         with open(manifest_path, "w") as f:
             json.dump(manifest, f, indent=2)
 
-    def list_archives(self):
+    def list_archives(self) -> list[dict[str, Any]]:
 
         manifests = []
 
@@ -119,7 +122,7 @@ class ArchiveManager:
 
         return manifests
 
-    def get_provenance(self, archive_id):
+    def get_provenance(self, archive_id: str) -> dict[str, Any] | None:
 
         prov_path = self.provenance_dir / f"{archive_id}.json"
 
@@ -129,7 +132,7 @@ class ArchiveManager:
         with open(prov_path, "r") as f:
             return json.load(f)
 
-    def get_fingerprint(self, archive_id):
+    def get_fingerprint(self, archive_id: str) -> str | None:
 
         fp_path = self.fingerprint_dir / f"{archive_id}.sha256"
 

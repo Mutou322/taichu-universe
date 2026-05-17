@@ -1,20 +1,23 @@
+"""多 Agent 并行演化，每个 agent 独立运行 GEP 引擎。"""
+
 # runtime/evolution/multi_agent.py
 
 import asyncio
+from typing import Any
 
 from runtime.evolution.engine import EvolutionEngine
 
 
 class MultiAgentEvolution:
 
-    def __init__(self, runtime_graph, agents_genomes):
+    def __init__(self, runtime_graph: Any, agents_genomes: Any) -> None:
         """
         agents_genomes: dict { agent_id: Genome }
         """
         self.runtime_graph = runtime_graph
         self.agents_genomes = agents_genomes
 
-    async def run(self):
+    async def run(self) -> dict[str, Any]:
         """多 Agent 并行演化，每个 Agent 的 genome 独立"""
         tasks = []
         for agent_id, genome in self.agents_genomes.items():

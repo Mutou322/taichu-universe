@@ -14,11 +14,12 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-WIKI_DIR = Path(os.path.expanduser("~/taichu/knowledge/wiki"))
+_TAICHU_HOME = Path(os.environ.get("TAICHU_HOME", str(Path.home() / "taichu"))).expanduser().resolve()
+WIKI_DIR = _TAICHU_HOME / "knowledge" / "wiki"
 SKIP_FILES = {"index.md", "README.md", "base.md"}
 
 
-def split_frontmatter(text):
+def split_frontmatter(text: str) -> tuple[str, str]:
     """Split markdown text into (frontmatter_text, body)."""
     if not text.startswith("---"):
         return "", text
@@ -43,7 +44,7 @@ def split_frontmatter(text):
     return fm_text, body
 
 
-def parse_date_from_fm(fm_text):
+def parse_date_from_fm(fm_text: str) -> str | None:
     """Try to extract date from raw frontmatter text."""
     m = re.search(r"^date:\s*(.+)$", fm_text, re.MULTILINE)
     if m:
@@ -51,11 +52,11 @@ def parse_date_from_fm(fm_text):
     return None
 
 
-def has_field(fm_text, field):
+def has_field(fm_text: str, field: str) -> bool:
     return re.search(rf"^{field}:", fm_text, re.MULTILINE) is not None
 
 
-def inject_fields(fm_text, created_at, now_str):
+def inject_fields(fm_text: str, created_at: str, now_str: str) -> tuple[str, list[str]]:
     """Add created_at, access_count, last_accessed_at if missing."""
     lines = fm_text.split("\n") if fm_text.strip() else []
     new_lines = list(lines)
@@ -87,7 +88,7 @@ def inject_fields(fm_text, created_at, now_str):
     return "\n".join(new_lines), added
 
 
-def main():
+def main() -> None:
     total = 0
     updated = 0
     skipped = 0

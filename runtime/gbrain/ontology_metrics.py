@@ -1,12 +1,11 @@
-# runtime/gbrain/ontology_metrics.py
-
-import asyncio
+"""本体指标 — 将本体构建结果推送到 metrics_bus 和 EventBus"""
 
 from runtime.metrics.metrics_bus import metrics_bus
 from runtime.metrics.models import MetricEvent
 
 
-async def emit_ontology_metrics(ontology):
+async def emit_ontology_metrics(ontology: dict) -> None:
+    """统计核心/次级节点数与簇总数，推送到指标总线和事件总线"""
     if not ontology:
         return
 
@@ -24,7 +23,7 @@ async def emit_ontology_metrics(ontology):
         },
     )
 
-    await metrics_bus.emit(event.name, event)
+    await metrics_bus.emit_async(event.name, event)
 
     # 同步推送到 EventBus（用于 WS 广播）
     from runtime.events.bus import bus

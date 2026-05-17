@@ -13,13 +13,36 @@
 """
 
 import json
+import logging
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 import yaml
 
-_CONFIG_PATH = Path.home() / "taichu" / "config" / "models.yaml"
+logger = logging.getLogger(__name__)
+
+_TAICHU_HOME = Path(os.environ.get("TAICHU_HOME", str(Path.home() / "taichu"))).expanduser().resolve()
+_CONFIG_PATH = _TAICHU_HOME / "config" / "models.yaml"
+
+
+def _find_key(obj):
+    """Recursively search a nested dict/list for the first value whose key contains 'key'."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if "key" in k.lower():
+                return v
+            if isinstance(v, (dict, list)):
+                result = _find_key(v)
+                if result:
+                    return result
+    elif isinstance(obj, list):
+        for item in obj:
+            result = _find_key(item)
+            if result:
+                return result
+    return None
 
 
 def _load_api_key(cfg: dict) -> str:
@@ -34,28 +57,11 @@ def _load_api_key(cfg: dict) -> str:
     if ov_conf.exists():
         try:
             data = json.loads(ov_conf.read_text())
-
-            def _find_key(obj):
-                if isinstance(obj, dict):
-                    for k, v in obj.items():
-                        if "key" in k.lower():
-                            return v
-                        if isinstance(v, (dict, list)):
-                            result = _find_key(v)
-                            if result:
-                                return result
-                elif isinstance(obj, list):
-                    for item in obj:
-                        result = _find_key(item)
-                        if result:
-                            return result
-                return None
-
             found = _find_key(data)
             if found:
                 return found
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("从 ov.conf 提取 API key 失败: %s", e)
 
     # 3. 环境变量
     key = os.environ.get("ARK_API_KEY", "")
@@ -73,8 +79,8 @@ def _load_api_key(cfg: dict) -> str:
             m = re.search(r"vision:\n\s+api_key:\s*(\S+)", raw)
             if m:
                 return m.group(1)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("从 Hermes config 提取 API key 失败: %s", e)
 
     return ""
 
@@ -88,7 +94,7 @@ class _Models:
         self._api_key = _load_api_key(self.cfg)
         self._base_url = self.cfg.get("api", {}).get("base_url", "")
 
-    def get(self, role: str) -> dict:
+    def get(self, role: str) -> dict[str, Any]:
         """获取指定角色的模型配置，自动注入 api_key 和 base_url
 
         参数:
@@ -106,7 +112,7 @@ class _Models:
         result["base_url"] = self._base_url
         return result
 
-    def list_models(self) -> dict:
+    def list_models(self) -> dict[str, Any]:
         """列出所有已配置的模型（不含 api_key）"""
         result = {}
         for role, cfg in self.cfg.get("models", {}).items():

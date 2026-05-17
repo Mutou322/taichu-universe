@@ -1,5 +1,4 @@
-# runtime/phase9_main.py
-# Phase 9 — 主循环：完整整合 数据摄取 → Workflow → GBrain → GEP → Multi-Agent 自演化闭环
+"""Phase 9 主循环：完整整合 Data Ingest → Workflow → GBrain → GEP → Multi-Agent 自演化闭环"""
 
 import asyncio
 
@@ -13,7 +12,6 @@ from runtime.attention.emergent_ecosystem import EmergentCognitiveEcosystem
 from runtime.attention.global_attention_field import GlobalAttentionField
 from runtime.attention.hotspot_clustering import HotspotClustering
 from runtime.capabilities.capability import Capability
-from runtime.capabilities.capability_matcher import CapabilityMatcher
 from runtime.capabilities.capability_registry import CapabilityRegistry
 from runtime.evolution.evolution_engine import EvolutionEngine
 from runtime.evolution.genome import Genome
@@ -25,6 +23,7 @@ from runtime.scheduler.adaptive_scheduler import AdaptiveScheduler
 
 
 class DummySource:
+    """模拟数据源，按索引循环提供文档用于测试"""
 
     def __init__(self, docs, loop=True):
         self.docs = docs
@@ -38,6 +37,7 @@ class DummySource:
 
 
 class SimpleGraph:
+    """简易内存图谱，存储文档节点及其嵌入向量"""
 
     def __init__(self):
         self.nodes = {}

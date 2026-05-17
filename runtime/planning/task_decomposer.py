@@ -1,11 +1,14 @@
+"""静态任务分解器，生成固定的检索-分析-记忆-合成工作流。"""
+
 # runtime/planning/task_decomposer.py
 
 from runtime.planning.workflow_graph import WorkflowGraph, WorkflowNode
 
 
 class TaskDecomposer:
+    """将用户查询分解为 retrieval -> graph_analysis/memory -> synthesis 的 DAG。"""
 
-    def decompose(self, user_query):
+    def decompose(self, user_query: str) -> WorkflowGraph:
 
         graph = WorkflowGraph()
 

@@ -1,16 +1,19 @@
-# runtime/capabilities/capability_registry.py
+"""Registry for agent capability profiles."""
+
+from typing import Any
 
 
 class CapabilityRegistry:
+    """Stores and retrieves capability lists per agent ID."""
 
-    def __init__(self):
+    def __init__(self) -> None:
 
-        self.agent_capabilities = {}
+        self.agent_capabilities: dict[str, list[Any]] = {}
 
-    def register(self, agent_id, capabilities):
+    def register(self, agent_id: str, capabilities: list[Any]) -> None:
 
         self.agent_capabilities[agent_id] = capabilities
 
-    def get(self, agent_id):
+    def get(self, agent_id: str) -> list[Any]:
 
         return self.agent_capabilities.get(agent_id, [])

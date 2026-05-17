@@ -7,7 +7,7 @@ from . import image_pipeline, markdown_pipeline, pdf_pipeline
 
 try:
     from . import compress_pipeline
-except Exception:
+except ImportError:
     compress_pipeline = None
 
 SUPPORTED = {

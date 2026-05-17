@@ -8,26 +8,44 @@
 """
 
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+_TAICHU_HOME = Path(os.environ.get("TAICHU_HOME", str(Path.home() / "taichu"))).expanduser().resolve()
 # 加 ~/taichu 到路径以导入 runtime 模块
-sys.path.insert(0, str(Path.home() / "taichu"))
-from runtime.bootstrap import init_runtime
+sys.path.insert(0, str(_TAICHU_HOME))
 
-ctx = init_runtime()
-paths = ctx["paths"]
+_ctx = None
 
-KB_MODELS = str(paths.kb_models)
-STORE_DIR = paths.get("storage", "raw")
+
+def _get_ctx():
+    global _ctx
+    if _ctx is None:
+        from runtime.bootstrap import init_runtime
+
+        _ctx = init_runtime()
+    return _ctx
+
+
+def _get_paths():
+    return _get_ctx()["paths"]
+
+
+def _get_kb_models():
+    return str(_get_paths().kb_models)
+
+
+def _get_store_dir():
+    return _get_paths().get("storage", "raw")
 
 
 def scan_inbox() -> list[dict]:
     """扫描 inbox 目录，返回待处理文件列表"""
-    inbox = Path(paths.ingest.inbox)
+    inbox = Path(_get_paths().ingest.inbox)
     if not inbox.exists():
         return []
 
@@ -49,11 +67,12 @@ def compile_all() -> int:
     """主入口：扫描 inbox → 管道分流 → 豆包 LLM 编译 → wiki"""
     from ingest.pipelines import SUPPORTED, dispatch
 
-    inbox = Path(paths.ingest.inbox)
-    wiki_dir = paths.wiki_dir
-    processed_dir = Path(paths.ingest.processed)
-    failed_dir = Path(paths.ingest.failed)
-    store_dir = Path(STORE_DIR)
+    p = _get_paths()
+    inbox = Path(p.ingest.inbox)
+    wiki_dir = p.wiki_dir
+    processed_dir = Path(p.ingest.processed)
+    failed_dir = Path(p.ingest.failed)
+    store_dir = Path(_get_store_dir())
 
     inbox.mkdir(parents=True, exist_ok=True)
     wiki_dir.mkdir(parents=True, exist_ok=True)
@@ -141,14 +160,15 @@ def _needs_llm_compile(ext: str) -> bool:
 
 def _compile_with_doubao(file_path: Path) -> dict:
     """调用 kb_models.py compile 使用豆包 LLM 编译"""
-    if not Path(KB_MODELS).exists():
-        return {"ok": False, "error": f"kb_models.py 不存在: {KB_MODELS}"}
+    kb_models = _get_kb_models()
+    if not Path(kb_models).exists():
+        return {"ok": False, "error": f"kb_models.py 不存在: {kb_models}"}
     if not file_path.exists():
         return {"ok": False, "error": f"文件不存在: {file_path}"}
 
     try:
         result = subprocess.run(
-            [sys.executable, KB_MODELS, "compile", str(file_path)],
+            [sys.executable, kb_models, "compile", str(file_path)],
             capture_output=True,
             text=True,
             timeout=180,
@@ -174,7 +194,7 @@ def _move_to(target_dir: Path, file_path: Path):
     file_path.rename(dest)
 
 
-def main():
+def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     count = compile_all()
     print(f"CONVERTED: {count}")

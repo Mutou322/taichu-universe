@@ -552,7 +552,9 @@ const _langPack = {
     'settings.render_quality': '渲染画质',
     // Model panel
     'model.current': '当前模型',
-    'model.switch': '切换模型',
+    'model.switch_reasoning': '切换推理模型',
+    'model.switch_embedding': '切换向量模型',
+    'model.switch_vision': '切换视觉模型',
     'model.select_provider': '— 选择提供商 —',
     'model.switch_to': '切换到',
     'model.base_url': 'Base URL',
@@ -567,9 +569,9 @@ const _langPack = {
     'model.network_error': '❌ 网络错误',
     'model.role_compile': '编译/推理',
     'model.role_query': '快速问答',
-    'model.role_reasoning': '复杂推理',
-    'model.role_embedding': '向量嵌入',
-    'model.role_vision': '视觉分析',
+    'model.role_reasoning': '推理模型',
+    'model.role_embedding': '向量模型',
+    'model.role_vision': '视觉模型',
     'model.switch_title': '切换模型',
     'model.switching_to': '切换到 ',
     // Pipeline trace
@@ -801,7 +803,9 @@ const _langPack = {
     'settings.runtime_metrics': 'Runtime Metrics',
     'settings.render_quality': 'Render Quality',
     'model.current': 'Current Model',
-    'model.switch': 'Switch Model',
+    'model.switch_reasoning': 'Switch Reasoning',
+    'model.switch_embedding': 'Switch Embedding',
+    'model.switch_vision': 'Switch Vision',
     'model.select_provider': '— Select Provider —',
     'model.switch_to': 'Switch to',
     'model.base_url': 'Base URL',
@@ -1836,6 +1840,26 @@ async function runPipelineTrace() {
 
 var _providersData=[];
 
+function _switchRow(titleKey, role, label){
+  var html='<div style="margin-top:12px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.7);border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:4px;">' + __(titleKey) + '</div>';
+  html+='<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap;">';
+  html+='  <select id="sel-'+role+'" style="flex:1;min-width:120px;padding:6px 8px;background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:rgba(255,255,255,0.7);font-size:12px;outline:none;cursor:pointer;">';
+  html+='    <option value="">' + __('model.select_provider') + '</option>';
+  for(var i=0;i<_providersData.length;i++){
+    var p=_providersData[i];
+    html+='    <option value="'+esc(p.id)+'" style="color:#fff;background:#1a1a2e;">'+esc(p.name)+'</option>';
+  }
+  html+='  </select>';
+  html+='</div>';
+  html+='<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap;">';
+  html+='  <input id="url-'+role+'" type="text" placeholder="'+__('model.base_url')+'" style="flex:1;min-width:140px;padding:6px 8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:4px;color:#fff;font-size:12px;outline:none;box-sizing:border-box;">';
+  html+='  <input id="key-'+role+'" type="text" placeholder="'+__('model.api_key')+'" style="flex:1;min-width:100px;padding:6px 8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:4px;color:#fff;font-size:12px;outline:none;box-sizing:border-box;">';
+  html+='  <button class="switch-btn" data-role="'+role+'" style="padding:6px 14px;background:#7dd3fc;color:#050816;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;white-space:nowrap;">' + __('model.confirm_switch') + '</button>';
+  html+='</div>';
+  html+='<div id="res-'+role+'" style="margin-top:4px;font-size:11px;"></div>';
+  return html;
+}
+
 function refreshModelPanel(){
   var panel=document.getElementById('model-panel');
   if(!panel)return;
@@ -1853,72 +1877,36 @@ function refreshModelPanel(){
       html+='<span style="color:#7dd3fc;font-family:monospace;font-size:11px;">'+c.model.substring(0,30)+'</span>';
       html+='</div>';
     }
-    html+='<div style="margin-top:14px;font-weight:600;color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:8px;">' + __('model.switch_title') + '</div>';
-    if(_providersData.length>0){
-      html+='<div style="margin-bottom:10px;"><select id="model-provider-select" style="width:100%;padding:8px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:4px;color:#fff;font-size:13px;outline:none;cursor:pointer;';
-      html+='-webkit-appearance:none;appearance:none;">';
-      html+='<option value="" style="color:#222;background:#f0f0f0;">' + __('model.select_provider') + '</option>';
-      for(var i=0;i<_providersData.length;i++){
-        var p=_providersData[i];
-        html+='<option value="'+esc(p.id)+'" style="color:#222;background:#f0f0f0;">'+esc(p.name)+'</option>';
-      }
-      html+='</select></div>';
-    }
-    // 表单区域（由 select 切换时填充）
-    html+='<div id="model-switch-form" style="display:none;padding:12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:6px;">';
-    html+='  <div id="switch-provider-name" style="margin-bottom:8px;font-weight:600;color:#7dd3fc;font-size:13px;"></div>';
-    html+='  <div style="margin-bottom:6px;"><label style="display:block;font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;">' + __('model.base_url') + '</label>';
-    html+='    <input id="switch-base-url" type="text" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:4px;color:#fff;font-size:12px;outline:none;box-sizing:border-box;"></div>';
-    html+='  <div style="margin-bottom:6px;"><label style="display:block;font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;">' + __('model.api_endpoint') + '</label>';
-    html+='    <input id="switch-endpoint" type="text" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:4px;color:#fff;font-size:12px;outline:none;box-sizing:border-box;"></div>';
-    html+='  <div style="margin-bottom:8px;"><label style="display:block;font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;">' + __('model.api_key') + '</label>';
-    html+='    <input id="switch-api-key" type="text" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:4px;color:#fff;font-size:12px;outline:none;box-sizing:border-box;"></div>';
-    html+='  <div style="display:flex;gap:6px;">';
-    html+='    <button id="switch-confirm-btn" style="flex:1;padding:6px;background:#7dd3fc;color:#050816;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">' + __('model.confirm_switch') + '</button>';
-    html+='    <button id="switch-cancel-btn" style="flex:1;padding:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:4px;cursor:pointer;font-size:12px;">' + __('model.cancel') + '</button>';
-    html+='  </div><div id="switch-result" style="margin-top:8px;font-size:12px;"></div>';
-    html+='</div>';
+    // 三个独立切换
+    html+=_switchRow('model.switch_reasoning','reasoning',__('model.role_reasoning'));
+    html+=_switchRow('model.switch_embedding','embedding',__('model.role_embedding'));
+    html+=_switchRow('model.switch_vision','vision',__('model.role_vision'));
     panel.innerHTML=html;
 
-    var sel=document.getElementById('model-provider-select');
-    var form=document.getElementById('model-switch-form');
-    if(sel&&form){
-      sel.addEventListener('change',function(){
-        var pid=this.value;
-        if(!pid){form.style.display='none';return;}
-        var provider=null;
-        for(var i=0;i<_providersData.length;i++){if(_providersData[i].id===pid){provider=_providersData[i];break;}}
-        if(!provider)return;
-        document.getElementById('switch-provider-name').textContent=__('model.switching_to')+provider.name;
-        document.getElementById('switch-base-url').value=provider.base_url||'';
-        document.getElementById('switch-endpoint').value=provider.chat_endpoint||'/v1/chat/completions';
-        document.getElementById('switch-api-key').value='';
-        document.getElementById('switch-result').innerHTML='';
-        form.style.display='block';
+    // 绑定所有切换按钮
+    var btns=panel.querySelectorAll('.switch-btn');
+    for(var i=0;i<btns.length;i++){
+      btns[i].addEventListener('click',function(){
+        var role=this.getAttribute('data-role');
+        confirmModelSwitch(role);
       });
     }
-    document.getElementById('switch-confirm-btn').addEventListener('click',function(){confirmModelSwitch();});
-    document.getElementById('switch-cancel-btn').addEventListener('click',function(){
-      document.getElementById('model-switch-form').style.display='none';
-      if(sel)sel.value='';
-    });
   }).catch(function(){panel.innerHTML='<div style="color:rgba(255,255,255,0.3);font-style:italic;">' + __('model.unavailable') + '</div>';});
 }
 
-function confirmModelSwitch(){
-  var sel=document.getElementById('model-provider-select');
-  var resultEl=document.getElementById('switch-result');
-  if(!sel||!resultEl)return;
+function confirmModelSwitch(role){
+  var sel=document.getElementById('sel-'+role);
+  var resEl=document.getElementById('res-'+role);
+  if(!sel||!resEl)return;
   var providerId=sel.value;
-  if(!providerId){resultEl.innerHTML='<span style="color:#f87171;">' + __('model.no_provider') + '</span>';return;}
-  var baseUrl=document.getElementById('switch-base-url')?document.getElementById('switch-base-url').value.trim():'';
-  var endpoint=document.getElementById('switch-endpoint')?document.getElementById('switch-endpoint').value.trim():'';
-  var apiKey=document.getElementById('switch-api-key')?document.getElementById('switch-api-key').value.trim():'';
-  resultEl.innerHTML=__('model.switching') + '...';
-  fetch('/api/models/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider_id:providerId,base_url:baseUrl,endpoint:endpoint,api_key:apiKey})}).then(function(r){return r.json();}).then(function(d){
-    if(d.ok){resultEl.innerHTML='<span style="color:#4ade80;">✔ '+esc(d.message)+'</span>';setTimeout(function(){refreshModelPanel();},1500);}
-    else{resultEl.innerHTML='<span style="color:#f87171;">❌ '+esc(d.error)+'</span>';}
-  }).catch(function(){resultEl.innerHTML='<span style="color:#f87171;">' + __('model.network_error') + '</span>';});
+  if(!providerId){resEl.innerHTML='<span style="color:#f87171;">' + __('model.no_provider') + '</span>';return;}
+  var baseUrl=document.getElementById('url-'+role)?document.getElementById('url-'+role).value.trim():'';
+  var apiKey=document.getElementById('key-'+role)?document.getElementById('key-'+role).value.trim():'';
+  resEl.innerHTML='<span style="color:rgba(255,255,255,0.4);">' + __('model.switching') + '</span>';
+  fetch('/api/models/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider_id:providerId,role:role,base_url:baseUrl,api_key:apiKey})}).then(function(r){return r.json();}).then(function(d){
+    if(d.ok){resEl.innerHTML='<span style="color:#4ade80;">✔ '+esc(d.message)+'</span>';setTimeout(function(){refreshModelPanel();},1500);}
+    else{resEl.innerHTML='<span style="color:#f87171;">❌ '+esc(d.error)+'</span>';}
+  }).catch(function(){resEl.innerHTML='<span style="color:#f87171;">' + __('model.network_error') + '</span>';});
 }
 
 // ── WebSocket 连接 ──

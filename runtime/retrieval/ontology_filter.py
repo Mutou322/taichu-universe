@@ -1,8 +1,7 @@
-# runtime/retrieval/ontology_filter.py
-from typing import Dict, List
+"""本体过滤器 — 按分类标签过滤检索结果，防止图谱爆炸"""
 
 
-def filter_by_ontology(docs: List[Dict], allowed_categories: list[str] | None = None) -> List[Dict]:
+def filter_by_ontology(docs: list[dict], allowed_categories: list[str] | None = None) -> list[dict]:
     """
     按层级过滤，防止图谱爆炸。
 
