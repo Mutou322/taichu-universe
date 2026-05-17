@@ -1,12 +1,16 @@
-# runtime/gbrain/graph_coherence.py
+"""图谱一致性引擎 — 计算图的孤儿比例、平均关系数与簇紧密度"""
 
 import statistics
 from collections import defaultdict
 
 
 class GraphCoherenceEngine:
+    """评估知识图谱的结构一致性，输出 coherence/orphan_ratio 等指标"""
+
+    ROUND_PRECISION = 4
 
     def compute(self, graph_nodes):
+        """统计孤立节点比例、平均关系数和簇内 gravity 标准差"""
         total_nodes = len(graph_nodes)
         if total_nodes == 0:
             return {
@@ -44,10 +48,10 @@ class GraphCoherenceEngine:
         coherence = max(0.0, 1.0 - orphan_ratio)
 
         return {
-            "coherence": round(coherence, 4),
-            "orphan_ratio": round(orphan_ratio, 4),
-            "avg_relations": round(avg_relations, 4),
-            "cluster_tightness": round(cluster_tightness, 4),
+            "coherence": round(coherence, self.ROUND_PRECISION),
+            "orphan_ratio": round(orphan_ratio, self.ROUND_PRECISION),
+            "avg_relations": round(avg_relations, self.ROUND_PRECISION),
+            "cluster_tightness": round(cluster_tightness, self.ROUND_PRECISION),
         }
 
 

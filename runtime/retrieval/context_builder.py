@@ -1,10 +1,9 @@
-# runtime/retrieval/context_builder.py
-from typing import Dict, List
+"""上下文构建器 — 将检索文档拼装为 Agent 可用的文本上下文"""
 
 MAX_TOKENS = 2000
 
 
-def build_context(docs: List[Dict], max_tokens: int = MAX_TOKENS) -> str:
+def build_context(docs: list[dict], max_tokens: int = MAX_TOKENS) -> str:
     """
     将检索结果组装成 Agent 可用的文本上下文。
 

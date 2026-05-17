@@ -1,30 +1,22 @@
-# runtime/attention/attention_propagation.py
+"""Propagates attention from source nodes to dependent neighbors."""
+
+from typing import Any
 
 
 class AttentionPropagation:
+    """Recursively propagates attention values along workflow dependency edges."""
 
-    def __init__(self, propagation_rate=0.3, max_depth=2):
+    def __init__(self, propagation_rate: float = 0.3, max_depth: int = 2) -> None:
 
         self.propagation_rate = propagation_rate
         self.max_depth = max_depth
 
-    def propagate(self, field, workflow, source_node, value, depth=0):
+    def propagate(self, field: Any, workflow: Any, source_node: str, value: float, depth: int = 0) -> None:
 
         if depth >= self.max_depth:
             return
 
-        # 邻居 = 依赖此节点 + 此节点依赖的节点
-        neighbors = set()
-
-        for nid, n in workflow.nodes.items():
-
-            if source_node in n.dependencies:
-                neighbors.add(nid)
-
-            if nid in workflow.nodes.get(source_node, type("", (), {"dependencies": []})()).dependencies:
-                pass  # 已经处理
-
-        # 更准确的：依赖 source_node 的节点才是邻居
+        # 依赖 source_node 的节点是邻居
         neighbors = [nid for nid, n in workflow.nodes.items() if source_node in n.dependencies]
 
         for neighbor in neighbors:

@@ -1,10 +1,11 @@
-# runtime/specialization/specialization_profile.py
+"""Specialization profile dataclass for agent expertise state."""
 
 from dataclasses import dataclass, field
 
 
 @dataclass
 class SpecializationProfile:
+    """Dataclass tracking agent specialization: domain, expertise, affinity, and evolution stage."""
 
     primary_domain: str
 

@@ -14,13 +14,14 @@ Wiki 文章规范化迁移脚本
   python3 migrate_wiki_frontmatter.py --backup     # 先备份再执行
 """
 
+import os
 import re
 import shutil
 import sys
 from pathlib import Path
 
-WIKI_DIR = Path.home() / "taichu" / "knowledge" / "wiki"
-BACKUP_DIR = Path.home() / "taichu" / "knowledge" / "wiki_backup_$(date +%Y%m%d_%H%M%S)"
+_TAICHU_HOME = Path(os.environ.get("TAICHU_HOME", str(Path.home() / "taichu"))).expanduser().resolve()
+WIKI_DIR = _TAICHU_HOME / "knowledge" / "wiki"
 
 # ── 三类模板 ──
 
@@ -97,8 +98,10 @@ def generate_title(filepath: Path) -> str:
         m = re.search(r"^#\s+(.+)$", content, re.MULTILINE)
         if m:
             return m.group(1).strip()
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+
+        logging.getLogger(__name__).debug("从 %s 提取标题失败: %s", filepath.name, e)
     return title.strip().title() if title else filepath.stem
 
 
@@ -113,7 +116,7 @@ def extract_date(filename: str) -> str:
     return ""
 
 
-def generate_tags(doc_type: str, filename: str) -> list:
+def generate_tags(doc_type: str, filename: str) -> list[str]:
     """根据类型和文件名生成标签"""
     tags = [doc_type]
     # 按关键字补充标签
@@ -169,7 +172,7 @@ def generate_frontmatter(doc_type: str, title: str, filename: str) -> str:
     return "\n".join(lines)
 
 
-def main():
+def main() -> None:
     dry_run = "--apply" not in sys.argv
     do_backup = "--backup" in sys.argv
 
@@ -226,7 +229,7 @@ def main():
         import datetime
 
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup = Path.home() / "taichu" / "knowledge" / f"wiki_backup_{ts}"
+        backup = _TAICHU_HOME / "knowledge" / f"wiki_backup_{ts}"
         shutil.copytree(WIKI_DIR, backup)
         print(f"\n📦 已备份到: {backup}")
 

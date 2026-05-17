@@ -8,6 +8,7 @@ Each registered agent gets a directory under knowledge/agents/{agent_id}/:
 
 from datetime import date, datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -95,7 +96,7 @@ class AgentFileManager:
         with open(path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
 
-    def update_profile(self, agent_id: str, updates: dict) -> dict | None:
+    def update_profile(self, agent_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
         path = self._profile_path(agent_id)
         profile = self.get_profile(agent_id) or {}
         profile.update(updates)
@@ -119,7 +120,7 @@ class AgentFileManager:
 
     # ── session logs ──
 
-    def append_session(self, agent_id: str, entry: dict) -> bool:
+    def append_session(self, agent_id: str, entry: dict[str, Any]) -> bool:
         """Append a log entry to today's session file."""
         sessions_dir = self._sessions_dir(agent_id)
         sessions_dir.mkdir(parents=True, exist_ok=True)
@@ -138,7 +139,7 @@ class AgentFileManager:
 
         return True
 
-    def list_sessions(self, agent_id: str) -> list[dict]:
+    def list_sessions(self, agent_id: str) -> list[dict[str, Any]]:
         """List available session dates with entry counts."""
         sessions_dir = self._sessions_dir(agent_id)
         if not sessions_dir.exists():

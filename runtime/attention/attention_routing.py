@@ -1,15 +1,18 @@
-# runtime/attention/attention_routing.py
+"""Routes workflow nodes to agents based on attention weights."""
+
+from typing import Any
 
 
 class AttentionRouting:
+    """Selects the best agent for a workflow node using attention map and load balancing."""
 
-    def __init__(self, attention_map, matcher, registry):
+    def __init__(self, attention_map: Any, matcher: Any, registry: Any) -> None:
 
         self.attention_map = attention_map
         self.matcher = matcher
         self.registry = registry
 
-    def select_agent_for_node(self, node):
+    def select_agent_for_node(self, node: Any) -> Any | None:
 
         agents_sorted = sorted(
             self.attention_map.all_weights()[node.node_id].items(),

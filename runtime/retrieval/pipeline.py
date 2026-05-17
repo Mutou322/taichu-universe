@@ -1,4 +1,5 @@
-# runtime/retrieval/pipeline.py
+"""检索管线 — Phase 2 全链路检索：解析→向量搜索→图谱扩展→过滤→重排序→构建上下文"""
+
 import asyncio
 
 from runtime.metrics.metrics_bus import metrics_bus
@@ -13,7 +14,7 @@ from runtime.retrieval.rerank import rerank_docs
 from runtime.retrieval.vector_search import hybrid_vector_search
 
 
-async def run_retrieval_pipeline(query: str):
+async def run_retrieval_pipeline(query: str) -> tuple[str, list[dict]]:
     """
     Phase 2 全链路 Retrieval Pipeline
     带 Phase 1 Metrics
@@ -43,7 +44,7 @@ async def run_retrieval_pipeline(query: str):
     # Step 4: ontology_filter
     with metric_timer("ontology_filter"):
         trace_ontology = runtime_tracer.start("ontology_filter")
-        docs = filter_by_ontology(docs, allowed_categories=[])
+        docs = filter_by_ontology(docs, allowed_categories=None)  # None = 不过滤，等 GBrain ontology 稳定后启用
         runtime_tracer.finish(trace_ontology)
 
     # Step 5: rerank

@@ -1,17 +1,20 @@
-# runtime/specialization/affinity_engine.py
+"""Routes tasks to agents based on computed semantic affinity."""
+
+from typing import Any
 
 
 class AffinityRouter:
+    """Selects the best agent for a task using affinity scores and load balancing."""
 
-    def __init__(self, affinity_engine):
+    def __init__(self, affinity_engine: Any) -> None:
 
         self.affinity_engine = affinity_engine
 
     def select_best_agent(
         self,
-        task,
-        agents,
-    ):
+        task: Any,
+        agents: list[Any],
+    ) -> Any | None:
 
         concepts = task.payload.get(
             "concepts",
@@ -37,5 +40,6 @@ class AffinityRouter:
             key=lambda x: x[0],
             reverse=True,
         )
-
+        if not scored:
+            return None
         return scored[0][1]

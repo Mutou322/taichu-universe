@@ -3,11 +3,29 @@
 单例，所有模块从 paths.get() 读取路径，不得硬编码。
 """
 
+import os
 from pathlib import Path
 
 import yaml
 
-_CONFIG_PATH = Path.home() / "taichu" / "config" / "paths.yaml"
+_TAICHU_HOME = Path(os.environ.get("TAICHU_HOME", str(Path.home() / "taichu"))).expanduser().resolve()
+_CONFIG_PATH = _TAICHU_HOME / "config" / "paths.yaml"
+
+
+class _PathProxy:
+    """代理对象，支持属性链访问，如 paths.ingest.inbox → paths.get("ingest", "inbox")"""
+
+    def __init__(self, parent, key):
+        self._parent = parent
+        self._key = key
+
+    def __getattr__(self, sub):
+        if sub.startswith("_"):
+            raise AttributeError(sub)
+        return self._parent.get(self._key, sub)
+
+    def __repr__(self):
+        return f"<PathProxy: {self._key}>"
 
 
 class _Paths:
@@ -62,21 +80,6 @@ class _Paths:
         """支持属性链访问，如 paths.ingest.inbox → paths.get("ingest", "inbox")"""
         if name.startswith("_"):
             raise AttributeError(name)
-
-        # 返回一个代理对象，支持进一步 .xxx 访问
-        class _PathProxy:
-            def __init__(self, parent, key):
-                self._parent = parent
-                self._key = key
-
-            def __getattr__(self, sub):
-                if sub.startswith("_"):
-                    raise AttributeError(sub)
-                return self._parent.get(self._key, sub)
-
-            def __repr__(self):
-                return f"<PathProxy: {self._key}>"
-
         return _PathProxy(self, name)
 
 

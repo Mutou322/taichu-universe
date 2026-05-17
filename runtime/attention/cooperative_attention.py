@@ -1,9 +1,12 @@
-# runtime/attention/cooperative_attention.py
+"""Cooperative attention bonus for multi-agent reinforcement."""
+
+from typing import Any
 
 
 class CooperativeAttention:
+    """Computes cooperation bonus when multiple agents attend to the same node."""
 
-    def reinforce(self, field, node_id, agents):
+    def reinforce(self, field: Any, node_id: str, agents: list[Any]) -> float:
 
         total = 0.0
 

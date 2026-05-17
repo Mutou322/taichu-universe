@@ -37,6 +37,15 @@ TIER_ACTIVE = 0.3
 TIER_NOTICE = 0.5
 TIER_AGING = 0.7
 
+# Factor weights for combined aging score (must sum to 1.0)
+TIME_WEIGHT = 0.4
+FREQUENCY_WEIGHT = 0.3
+CONFIDENCE_WEIGHT = 0.3
+
+# Other constants
+SECONDS_PER_DAY = 86400
+DEFAULT_TIME_DECAY = 0.5  # When no timestamp available
+
 
 def _days_since(iso_date_str: str | None) -> float | None:
     """Calculate days from iso_date_str to now. Returns None if absent."""
@@ -47,7 +56,7 @@ def _days_since(iso_date_str: str | None) -> float | None:
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         delta = datetime.now(timezone.utc) - dt
-        return max(0.0, delta.total_seconds() / 86400)
+        return max(0.0, delta.total_seconds() / SECONDS_PER_DAY)
     except (ValueError, TypeError):
         return None
 
@@ -107,7 +116,7 @@ def compute_aging(filepath: Path) -> dict:
         time_decay = round(1.0 - pow(2.0, -ref_days / ACCESS_DECAY_DAYS), 4)
     else:
         # No timestamp at all → moderately aged (we know nothing)
-        time_decay = 0.5
+        time_decay = DEFAULT_TIME_DECAY
 
     # ── Factor F: Frequency factor (weight 0.3) ──
     # Lower access_count → higher aging. Scale: 0 access = 1.0, 10+ = 0.0
@@ -123,7 +132,7 @@ def compute_aging(filepath: Path) -> dict:
     confidence = round(1.0 - conf_score, 4)
 
     # ── Combined score ──
-    score = round(time_decay * 0.4 + frequency * 0.3 + confidence * 0.3, 4)
+    score = round(time_decay * TIME_WEIGHT + frequency * FREQUENCY_WEIGHT + confidence * CONFIDENCE_WEIGHT, 4)
 
     # ── Tier ──
     if score < TIER_ACTIVE:
@@ -215,7 +224,7 @@ def report(wiki_dir: Path | None = None) -> dict:
     }
 
 
-def log_aging_event(file_stem: str, action: str, reason: str):
+def log_aging_event(file_stem: str, action: str, reason: str) -> None:
     """Append an aging event to the JSONL log.
 
     Args:

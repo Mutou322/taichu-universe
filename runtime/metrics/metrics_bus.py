@@ -1,36 +1,41 @@
-import asyncio
-from collections import defaultdict
-from typing import Callable, Dict, List
+"""指标消息总线，支持同步和异步的主题订阅与发布"""
 
-from .models import MetricEvent
+import asyncio
+import logging
+from collections import defaultdict
+from typing import Callable
+
+logger = logging.getLogger(__name__)
 
 
 class MetricsBus:
-    def __init__(self):
-        self.subscribers: Dict[str, List[Callable]] = defaultdict(list)
-        self.data_store: Dict[str, list] = defaultdict(list)
+    """主题式指标事件总线，支持同步/异步发射与回调注册"""
 
-    def subscribe(self, topic: str, callback: Callable):
+    def __init__(self):
+        self.subscribers: dict[str, list[Callable]] = defaultdict(list)
+        self.data_store: dict[str, list] = defaultdict(list)
+
+    def subscribe(self, topic: str, callback: Callable) -> None:
         self.subscribers[topic].append(callback)
 
-    def emit(self, topic: str, data):
+    def emit(self, topic: str, data) -> None:
         self.data_store[topic].append(data)
         for cb in self.subscribers[topic]:
             try:
                 cb(data)
             except Exception as e:
-                print(f"[MetricsBus] sync listener error: {e}")
+                logger.warning("sync listener error: %s", e)
 
-    def emit_sync(self, topic: str, data):
+    def emit_sync(self, topic: str, data) -> None:
         """同步发射（无事件循环时的兜底）"""
         self.data_store[topic].append(data)
         for cb in self.subscribers[topic]:
             try:
                 cb(data)
             except Exception as e:
-                print(f"[MetricsBus] sync listener error: {e}")
+                logger.warning("sync listener error: %s", e)
 
-    async def emit_async(self, topic: str, data):
+    async def emit_async(self, topic: str, data) -> None:
         self.data_store[topic].append(data)
         for cb in self.subscribers[topic]:
             try:
@@ -39,7 +44,7 @@ class MetricsBus:
                 else:
                     cb(data)
             except Exception as e:
-                print(f"[MetricsBus] async listener error: {e}")
+                logger.warning("async listener error: %s", e)
 
 
 metrics_bus = MetricsBus()

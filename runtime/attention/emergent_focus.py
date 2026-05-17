@@ -1,9 +1,12 @@
-# runtime/attention/emergent_focus.py
+"""Detects emergent focus hotspots above a threshold."""
+
+from typing import Any
 
 
 class EmergentFocus:
+    """Identifies attention hotspots where the attention value exceeds a threshold."""
 
-    def detect(self, field, threshold=3.0):
+    def detect(self, field: Any, threshold: float = 3.0) -> list[tuple[str, float]]:
 
         focus = []
 

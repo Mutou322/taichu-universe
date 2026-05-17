@@ -89,6 +89,18 @@ var _langPack = {
     'model.switching': '切换中...',
     'model.no_provider': '请选择提供商',
     'model.req_fail': '请求失败',
+    'model.unavailable': '模型信息不可用',
+    'model.network_error': '❌ 网络错误',
+    'model.switch_reasoning': '切换推理模型',
+    'model.switch_embedding': '切换向量模型',
+    'model.switch_vision': '切换视觉模型',
+    'model.role_compile': '编译/推理',
+    'model.role_query': '快速问答',
+    'model.role_reasoning': '推理模型',
+    'model.role_embedding': '向量模型',
+    'model.role_vision': '视觉模型',
+    'model.switch_title': '切换模型',
+    'model.switching_to': '切换到 ',
     'gfx.renderer': '渲染引擎',
     'gfx.view_mode': '视图模式',
     'gfx.layout_mode': '布局模式',
@@ -247,6 +259,18 @@ var _langPack = {
     'model.switching': 'Switching...',
     'model.no_provider': 'Please select a provider',
     'model.req_fail': 'Request failed',
+    'model.unavailable': 'Model info unavailable',
+    'model.network_error': '❌ Network Error',
+    'model.switch_reasoning': 'Switch Reasoning Model',
+    'model.switch_embedding': 'Switch Embedding Model',
+    'model.switch_vision': 'Switch Vision Model',
+    'model.role_compile': 'Compile/Reasoning',
+    'model.role_query': 'Quick Q&A',
+    'model.role_reasoning': 'Reasoning Model',
+    'model.role_embedding': 'Embedding Model',
+    'model.role_vision': 'Vision Model',
+    'model.switch_title': 'Switch Model',
+    'model.switching_to': 'Switch to ',
     'gfx.renderer': 'Renderer',
     'gfx.view_mode': 'View Mode',
     'gfx.layout_mode': 'Layout Mode',
@@ -556,8 +580,8 @@ function renderEntriesPage(){const list=document.getElementById('entries-list');
   list.innerHTML='';page.forEach(function(name){const li=document.createElement('li');li.innerHTML=getConfBadge(name)+escHtml(name.replace(/^archive-/i,'').replace(/\.md$/,''));if(name.startsWith('archive-'))li.style.opacity=0.5;list.appendChild(li);});
   const totalPages=Math.ceil(allEntries.length/entriesPageSize);const nav=document.createElement('li');
   nav.style.cssText='border:none !important;padding:8px 0;text-align:center;font-size:12px;color:rgba(255,255,255,0.4);';
-  const prevBtn=entriesPage>0?'<span class="page-btn" data-dir="prev" style="cursor:pointer;color:#7dd3fc;margin:0 8px;">'+__('entries.prev')+'</span>':'';
-  const nextBtn=entriesPage<totalPages-1?'<span class="page-btn" data-dir="next" style="cursor:pointer;color:#7dd3fc;margin:0 8px;">'+__('entries.next')+'</span>':'';
+  const prevBtn=entriesPage>0?'<span onclick="entriesPage--;renderEntriesPage()" style="cursor:pointer;color:#7dd3fc;margin:0 8px;">'+__('entries.prev')+'</span>':'';
+  const nextBtn=entriesPage<totalPages-1?'<span onclick="entriesPage++;renderEntriesPage()" style="cursor:pointer;color:#7dd3fc;margin:0 8px;">'+__('entries.next')+'</span>':'';
   nav.innerHTML=prevBtn+__('entries.page')+' '+(entriesPage+1)+'/'+totalPages+' '+__('entries.page_total')+nextBtn;list.appendChild(nav);}
 function filterEntries(){const q=document.getElementById('entries-search').value.trim().toLowerCase();if(!q){renderEntriesPage();return;}
   const list=document.getElementById('entries-list');const matched=allEntries.filter(function(n){return n.toLowerCase().includes(q);});
@@ -786,88 +810,73 @@ function refreshUploadStats(){
 }
 var _providersData=[];
 
+function _switchRow(titleKey, role, label){
+  var html='<div style="margin-top:12px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border);padding-bottom:4px;">'+__(titleKey)+'</div>';
+  html+='<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap;">';
+  html+='  <select id="sel-'+role+'" style="flex:1;min-width:120px;padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;">';
+  html+='    <option value="">'+__('model.select_provider')+'</option>';
+  for(var i=0;i<_providersData.length;i++){
+    var p=_providersData[i];
+    html+='    <option value="'+escHtml(p.id)+'" style="background:#1a1a3e;color:#fff;">'+escHtml(p.name)+'</option>';
+  }
+  html+='  </select>';
+  html+='</div>';
+  html+='<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap;">';
+  html+='  <input id="url-'+role+'" type="text" placeholder="'+__('model.base_url')+'" style="flex:1;min-width:140px;padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">';
+  html+='  <input id="key-'+role+'" type="text" placeholder="'+__('model.api_key')+'" style="flex:1;min-width:100px;padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;">';
+  html+='  <button class="switch-btn" data-role="'+role+'" style="padding:6px 14px;background:var(--gold);color:#050816;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;white-space:nowrap;">'+__('model.confirm_switch')+'</button>';
+  html+='</div>';
+  html+='<div id="res-'+role+'" style="margin-top:4px;font-size:11px;"></div>';
+  return html;
+}
+
 function refreshModelPanel(){
   var panel=document.getElementById('model-panel');
   if(!panel)return;
   fetch(API+'/api/models').then(function(r){return r.json();}).then(function(d){
     _providersData=d.providers||[];
-    var html='<div style="margin-bottom:12px;font-weight:600;color:var(--text);">'+__('model.current')+'</div>';
-    var roles={compile:'编译/推理',query:'快速问答',reasoning:'复杂推理',embedding:'向量嵌入',vision:'视觉分析'};
+    var html='<div style="margin-bottom:10px;font-weight:600;color:var(--text);font-size:13px;">'+__('model.current')+'</div>';
+    var roles={compile:__('model.role_compile'),query:__('model.role_query'),reasoning:__('model.role_reasoning'),embedding:__('model.role_embedding'),vision:__('model.role_vision')};
     var roleOrder=['compile','query','reasoning','embedding','vision'];
     for(var i=0;i<roleOrder.length;i++){
       var role=roleOrder[i];
       var c=d.current[role];
       if(!c||!c.model)continue;
-      html+='<div class="setting-row" style="border-bottom:1px solid rgba(255,255,255,0.04);">';
-      html+='<span class="setting-label" style="font-size:12px;">'+(roles[role]||role)+'</span>';
-      html+='<span class="setting-value" style="font-size:11px;color:var(--gold);">'+c.model.substring(0,30)+'</span>';
+      html+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px;">';
+      html+='<span style="color:var(--dim);">'+(roles[role]||role)+'</span>';
+      html+='<span style="color:var(--gold);font-family:monospace;font-size:11px;">'+c.model.substring(0,30)+'</span>';
       html+='</div>';
     }
-    html+='<div style="margin-top:16px;font-weight:600;color:var(--text);margin-bottom:8px;">'+__('model.switch')+'</div>';
-    if(_providersData.length>0){
-      html+='<div style="margin-bottom:10px;"><select id="model-provider-select" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;outline:none;cursor:pointer;';
-      html+='-webkit-appearance:none;appearance:none;">';
-      html+='<option value="" style="color:#222;background:#f0f0f0;">'+__('model.select_provider')+'</option>';
-      for(var i=0;i<_providersData.length;i++){
-        var p=_providersData[i];
-        html+='<option value="'+escHtml(p.id)+'" style="color:#222;background:#f0f0f0;">'+escHtml(p.name)+'</option>';
-      }
-      html+='</select></div>';
-    }
-    html+='<div id="model-switch-form" style="display:none;padding:12px;background:var(--card);border:1px solid var(--gold);border-radius:6px;">';
-    html+='  <div id="switch-provider-name" style="margin-bottom:8px;font-weight:600;color:var(--gold);font-size:13px;"></div>';
-    html+='  <div style="margin-bottom:6px;"><label style="display:block;font-size:11px;color:var(--dim);margin-bottom:2px;">'+__('model.base_url')+'</label>';
-    html+='    <input id="switch-base-url" type="text" style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;"></div>';
-    html+='  <div style="margin-bottom:6px;"><label style="display:block;font-size:11px;color:var(--dim);margin-bottom:2px;">'+__('model.api_endpoint')+'</label>';
-    html+='    <input id="switch-endpoint" type="text" style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;"></div>';
-    html+='  <div style="margin-bottom:8px;"><label style="display:block;font-size:11px;color:var(--dim);margin-bottom:2px;">'+__('model.api_key')+'</label>';
-    html+='    <input id="switch-api-key" type="text" style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;outline:none;box-sizing:border-box;"></div>';
-    html+='  <div style="display:flex;gap:6px;">';
-    html+='    <button id="switch-confirm-btn" style="flex:1;padding:6px;background:var(--gold);color:#050816;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">'+__('model.confirm_switch')+'</button>';
-    html+='    <button id="switch-cancel-btn" style="flex:1;padding:6px;background:var(--card);border:1px solid var(--border);color:var(--sec);border-radius:4px;cursor:pointer;font-size:12px;">'+__('model.cancel')+'</button>';
-    html+='  </div><div id="switch-result" style="margin-top:8px;font-size:12px;"></div>';
-    html+='</div>';
+    // 三个独立切换
+    html+=_switchRow('model.switch_reasoning','reasoning',__('model.role_reasoning'));
+    html+=_switchRow('model.switch_embedding','embedding',__('model.role_embedding'));
+    html+=_switchRow('model.switch_vision','vision',__('model.role_vision'));
     panel.innerHTML=html;
 
-    var sel=document.getElementById('model-provider-select');
-    var form=document.getElementById('model-switch-form');
-    if(sel&&form){
-      sel.addEventListener('change',function(){
-        var pid=this.value;
-        if(!pid){form.style.display='none';return;}
-        var provider=null;
-        for(var i=0;i<_providersData.length;i++){if(_providersData[i].id===pid){provider=_providersData[i];break;}}
-        if(!provider)return;
-        document.getElementById('switch-provider-name').textContent=__('model.switch_to')+' '+provider.name;
-        document.getElementById('switch-base-url').value=provider.base_url||'';
-        document.getElementById('switch-endpoint').value=provider.chat_endpoint||'/v1/chat/completions';
-        document.getElementById('switch-api-key').value='';
-        document.getElementById('switch-result').innerHTML='';
-        form.style.display='block';
+    // 绑定所有切换按钮
+    var btns=panel.querySelectorAll('.switch-btn');
+    for(var i=0;i<btns.length;i++){
+      btns[i].addEventListener('click',function(){
+        var role=this.getAttribute('data-role');
+        confirmModelSwitch(role);
       });
     }
-    document.getElementById('switch-confirm-btn').addEventListener('click',function(){confirmModelSwitch();});
-    document.getElementById('switch-cancel-btn').addEventListener('click',function(){
-      document.getElementById('model-switch-form').style.display='none';
-      if(sel)sel.value='';
-    });
-  }).catch(function(){panel.innerHTML='<div style="color:var(--dim);font-style:italic;">模型信息不可用</div>';});
+  }).catch(function(){panel.innerHTML='<div style="color:var(--dim);font-style:italic;">'+__('model.unavailable')+'</div>';});
 }
 
-function confirmModelSwitch(){
-  var sel=document.getElementById('model-provider-select');
-  var resultEl=document.getElementById('switch-result');
-  if(!sel||!resultEl)return;
+function confirmModelSwitch(role){
+  var sel=document.getElementById('sel-'+role);
+  var resEl=document.getElementById('res-'+role);
+  if(!sel||!resEl)return;
   var providerId=sel.value;
-  if(!providerId){resultEl.innerHTML='<span style="color:var(--orange);">'+__('model.no_provider')+'</span>';return;}
-  var baseUrl=document.getElementById('switch-base-url')?document.getElementById('switch-base-url').value.trim():'';
-  var endpoint=document.getElementById('switch-endpoint')?document.getElementById('switch-endpoint').value.trim():'';
-  var apiKey=document.getElementById('switch-api-key')?document.getElementById('switch-api-key').value.trim():'';
-  resultEl.innerHTML='⏳ '+__('model.switching');
-  fetch(API+'/api/models/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider_id:providerId,base_url:baseUrl,endpoint:endpoint,api_key:apiKey})}).then(function(r){return r.json();}).then(function(d){
-    if(d.ok){resultEl.innerHTML='<span style="color:var(--green);">✔ '+escHtml(d.message)+'</span>';setTimeout(function(){refreshModelPanel();},1500);}
-    else{resultEl.innerHTML='<span style="color:var(--orange);">❌ '+escHtml(d.error)+'</span>';}
-  }).catch(function(){resultEl.innerHTML='<span style="color:var(--orange);">❌ '+__('model.req_fail')+'</span>';});
+  if(!providerId){resEl.innerHTML='<span style="color:var(--orange);">'+__('model.no_provider')+'</span>';return;}
+  var baseUrl=document.getElementById('url-'+role)?document.getElementById('url-'+role).value.trim():'';
+  var apiKey=document.getElementById('key-'+role)?document.getElementById('key-'+role).value.trim():'';
+  resEl.innerHTML='<span style="color:var(--dim);">'+__('model.switching')+'</span>';
+  fetch(API+'/api/models/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider_id:providerId,role:role,base_url:baseUrl,api_key:apiKey})}).then(function(r){return r.json();}).then(function(d){
+    if(d.ok){resEl.innerHTML='<span style="color:var(--green);">✔ '+escHtml(d.message)+'</span>';setTimeout(function(){refreshModelPanel();},1500);}
+    else{resEl.innerHTML='<span style="color:var(--orange);">❌ '+escHtml(d.error)+'</span>';}
+  }).catch(function(){resEl.innerHTML='<span style="color:var(--orange);">'+__('model.network_error')+'</span>';});
 }
 function isWebGL2Available(){try{const c=document.createElement('canvas');return !!(window.WebGL2RenderingContext&&c.getContext('webgl2'));}catch(e){return false;}}
 const CAN_3D = isWebGL2Available();

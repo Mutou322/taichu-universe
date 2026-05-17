@@ -8,19 +8,24 @@
   pip install chromadb sentence-transformers
 
 用法：
-  python3 ~/taichu_knowledge/tools/build_chromadb_index.py          # 完整重建
-  python3 ~/taichu_knowledge/tools/build_chromadb_index.py incremental  # 仅索引新文档
+  python3 ~/taichu/tools/build_chromadb_index.py          # 完整重建
+  python3 ~/taichu/tools/build_chromadb_index.py incremental  # 仅索引新文档
 """
 import argparse
+import os
 import sys
 from pathlib import Path
 
-VAULT = Path.home() / "taichu_knowledge"
-WIKI_DIR = VAULT / "wiki"
-DB_PATH = VAULT / "chroma_db"
+_TAICHU_HOME = Path(os.environ.get("TAICHU_HOME", str(Path.home() / "taichu"))).expanduser().resolve()
+WIKI_DIR = _TAICHU_HOME / "knowledge" / "wiki"
+DB_PATH = _TAICHU_HOME / "storage" / "vector" / "chroma"
+
+# ── 索引构建常量 ──
+CHROMA_BATCH_SIZE = 50
+MAX_EMBED_TEXT_LENGTH = 1000  # Max characters of document text to use for embedding vector
 
 
-def build_index():
+def build_index() -> None:
     """构建 ChromaDB 向量索引（完整重建）"""
     # 尝试导入依赖
     try:
@@ -49,22 +54,19 @@ def build_index():
     # 如果已存在则重建（索引与文件系统同步）
     try:
         client.delete_collection("kb_articles")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"  无需删除已有集合: {e}")
     collection = client.create_collection(name="kb_articles")
 
     # 逐条向量化
-    batch_size = 50
     total = len(md_files)
 
-    for i in range(0, total, batch_size):
-        batch = md_files[i : i + batch_size]
+    for i in range(0, total, CHROMA_BATCH_SIZE):
+        batch = md_files[i : i + CHROMA_BATCH_SIZE]
         ids, documents, metadatas = [], [], []
 
         for f in batch:
             content = f.read_text(encoding="utf-8")
-            # 取前 1000 字作为向量文本（全文太长会稀释语义）
-            text_for_embed = content[:1000]
             # 用相对路径作唯一 ID（避免不同目录下同名文件冲突）
             rel_path = str(f.relative_to(WIKI_DIR))
             doc_id = rel_path.replace("/", "--").replace(".md", "")
@@ -75,15 +77,15 @@ def build_index():
         # 批量编码
         embeddings = model.encode(documents, show_progress_bar=True).tolist()
         collection.add(embeddings=embeddings, documents=documents, metadatas=metadatas, ids=ids)
-        print(f"  进度: {min(i+batch_size, total)}/{total}")
+        print(f"  进度: {min(i+CHROMA_BATCH_SIZE, total)}/{total}")
 
     print(f"\n✅ 索引完成: {collection.count()} 个词条")
     print(f"   数据库路径: {DB_PATH}")
-    print(f"   模型: paraphrase-multilingual-MiniLM-L12-v2")
+    print("   模型: paraphrase-multilingual-MiniLM-L12-v2")
     print(f"   维度: {len(embeddings[0]) if embeddings else 'N/A'}")
 
 
-def incremental_update():
+def incremental_update() -> None:
     """增量索引：只索引不在 ChromaDB 中的新文档"""
     try:
         import chromadb
@@ -122,8 +124,8 @@ def incremental_update():
         existing_data = collection.get(limit=existing_count + 100)
         if existing_data and existing_data.get("ids"):
             existing_ids = set(existing_data["ids"])
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"  获取现有 ID 失败: {e}")
 
     # 找出新文档
     new_files = []
@@ -141,9 +143,8 @@ def incremental_update():
 
     # 编码并添加
     model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-    batch_size = 50
-    for i in range(0, len(new_files), batch_size):
-        batch = new_files[i : i + batch_size]
+    for i in range(0, len(new_files), CHROMA_BATCH_SIZE):
+        batch = new_files[i : i + CHROMA_BATCH_SIZE]
         ids, documents, metadatas = [], [], []
 
         for f in batch:
@@ -167,11 +168,11 @@ def incremental_update():
             metadatas=metadatas,
             ids=ids,
         )
-        print(f"  进度: {min(i+batch_size, len(new_files))}/{len(new_files)}")
+        print(f"  进度: {min(i+CHROMA_BATCH_SIZE, len(new_files))}/{len(new_files)}")
 
     print(f"\n✅ 增量索引完成: 新增 {len(new_files)} 个词条")
     print(f"   数据库路径: {DB_PATH}")
-    print(f"   模型: paraphrase-multilingual-MiniLM-L12-v2")
+    print("   模型: paraphrase-multilingual-MiniLM-L12-v2")
 
 
 if __name__ == "__main__":

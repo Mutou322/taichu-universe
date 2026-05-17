@@ -10,17 +10,16 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
-TAICHU_HOME = Path.home() / "taichu"
+TAICHU_HOME = Path(os.environ.get("TAICHU_HOME", str(Path.home() / "taichu"))).expanduser().resolve()
 sys.path.insert(0, str(TAICHU_HOME))
 sys.path.insert(0, str(TAICHU_HOME / "config"))
-
-from config.bootstrap import TAICHU_CONFIG
 
 logger = logging.getLogger("taichu.web")
 
 # 使用 taichu_venv Python 环境（含 sentence_transformers 等）
-_VENV = Path.home() / "taichu_venv" / "lib" / f"python3.{sys.version_info.minor}" / "site-packages"
+_VENV = TAICHU_HOME.parent / "taichu_venv" / "lib" / f"python3.{sys.version_info.minor}" / "site-packages"
 if _VENV.exists():
     sys.path.insert(0, str(_VENV))
 
@@ -34,6 +33,7 @@ from paths import paths
 try:
     from tools.core.kb.confidence import batch_confidence, compute_confidence, parse_frontmatter
 except ImportError:
+    logger.warning("tools.core.kb.confidence 导入失败，置信度功能不可用")
     compute_confidence = None
     batch_confidence = None
     parse_frontmatter = None
@@ -43,6 +43,7 @@ try:
     from tools.core.kb.aging import report as aging_report
     from tools.core.kb.aging import suggest_archive, suggest_review
 except ImportError:
+    logger.warning("tools.core.kb.aging 导入失败，老化功能不可用")
     batch_aging = None
     aging_report = None
     apply_aging_flag = None
@@ -56,6 +57,7 @@ try:
 
     _agent_file_mgr = AgentFileManager()
 except ImportError:
+    logger.warning("tools.core.kb.agent_files 导入失败，Agent 文件管理不可用")
     _agent_file_mgr = None
     on_memory_stored = None
     on_agent_registered = None
@@ -63,6 +65,7 @@ except ImportError:
 try:
     from runtime.memory.session_memory import get_session_memory
 except ImportError:
+    logger.warning("runtime.memory.session_memory 导入失败，会话记忆不可用")
     get_session_memory = None
 
 from runtime.events.bus import bus
@@ -79,7 +82,7 @@ semantic = None
 _kb_models_module = None
 
 
-def ensure_memory():
+def ensure_memory() -> bool:
     """确保 memory 已初始化，返回 bool"""
     global memory
     if memory is None:
@@ -87,7 +90,7 @@ def ensure_memory():
     return memory is not None
 
 
-def ensure_semantic():
+def ensure_semantic() -> bool:
     """确保 semantic 已初始化，返回 bool"""
     global semantic
     if semantic is None:
@@ -119,7 +122,7 @@ def _load_kb_models():
         _kb_models_module = None
         return None
     finally:
-        sys.path = old_sys_path
+        sys.path[:] = old_sys_path
 
 
 # 从 pipelines 导入支持的文件类型，保持同步
@@ -419,7 +422,7 @@ PAGE_HTML = r"""<!DOCTYPE html>
   </div>
 
 </div>
-<script src="/static/kb.js?v=10"></script>
+<script src="/static/kb.js?v=11"></script>
 </body>
 </html>"""
 
@@ -427,6 +430,14 @@ PAGE_HTML = r"""<!DOCTYPE html>
 # ── FastAPI app ──
 
 app = FastAPI(title="太初知识宇宙 Web UI", version="0.3.0")
+
+
+@app.on_event("shutdown")
+async def _shutdown():
+    """释放 EventBus 线程池等资源"""
+    bus.shutdown()
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://127.0.0.1:8765", "tauri://localhost", "http://localhost:8765", "null"],
@@ -447,7 +458,7 @@ def _build_graph_json() -> dict:
     try:
         graph = semantic._ensure_graph()
     except Exception as e:
-        print(f"[错误] _ensure_graph 失败: {e}")
+        logger.error("[错误] _ensure_graph 失败: %s", e)
         return {"nodes": [], "edges": [], "total_nodes": 0}
     nodes = []
     for n in graph["nodes"]:
@@ -494,8 +505,8 @@ def _lookup_confidence(title: str):
         fp = paths.wiki_dir / f"{title}.md"
         if fp.exists():
             return compute_confidence(fp)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("_compute_confidence failed for %s: %s", title, e)
     return None
 
 
@@ -523,8 +534,8 @@ def _enrich_result(title: str) -> dict:
         body = body.strip()
         if body:
             result["summary"] = body[:120]
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("_enrich_result failed for %s: %s", title, e)
     return result
 
 
@@ -552,7 +563,7 @@ def _build_search_results(titles, scores=None):
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index():
+async def index() -> str:
     return PAGE_HTML
 
 
@@ -560,7 +571,8 @@ async def index():
 
 
 @app.get("/api/stats")
-async def api_stats():
+async def api_stats() -> dict[str, Any]:
+    """返回知识库统计信息：词条数、归档数、ChromaDB 状态"""
     scanned = _scan_wiki_files()
     # ChromaDB 信息
     chroma_ok = False
@@ -574,9 +586,11 @@ async def api_stats():
             chroma_count = store.count
             try:
                 chroma_collections = [c.name for c in store.client.list_collections()]
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed to list ChromaDB collections: %s", e)
                 chroma_collections = ["taichu_memory"]
-        except Exception:
+        except Exception as e:
+            logger.debug("Health check ChromaDB access failed: %s", e)
             chroma_ok = False
 
     return {
@@ -592,7 +606,8 @@ async def api_stats():
 
 
 @app.get("/api/metrics")
-async def api_metrics():
+async def api_metrics() -> dict[str, Any]:
+    """返回运行时指标：检索统计、图谱结构、记忆数量"""
     try:
         from runtime.metrics.collector import metrics_collector
         from runtime.metrics.counters import metrics_counters
@@ -626,7 +641,7 @@ async def api_metrics():
 
 
 @app.get("/api/pipeline/trace")
-async def pipeline_trace(q: str = "transformer attention", context: int = 0):
+async def pipeline_trace(q: str = "transformer attention", context: int = 0) -> dict[str, Any]:
     """运行一次 Retrieval Pipeline，返回各阶段耗时"""
     try:
         import asyncio
@@ -668,7 +683,8 @@ async def pipeline_trace(q: str = "transformer attention", context: int = 0):
 
 
 @app.get("/api/kb/graph")
-async def kb_graph(limit: int = 150, expand: str = ""):
+async def kb_graph(limit: int = 150, expand: str = "") -> dict[str, Any]:
+    """返回知识图谱数据，支持 top-N 核心节点或单节点邻域展开模式"""
     graph_data = _build_graph_json()
 
     if expand:
@@ -715,7 +731,8 @@ async def kb_graph(limit: int = 150, expand: str = ""):
 
 
 @app.get("/api/kb/search")
-async def kb_search(q: str = "", mode: str = "search", min_confidence: float = 0.0):
+async def kb_search(q: str = "", mode: str = "search", min_confidence: float = 0.0) -> dict[str, Any]:
+    """语义搜索 — 降级链: 豆包 embedding → ChromaDB MemoryRuntime"""
     if not q:
         return {"results": [], "error": "请输入搜索词"}
 
@@ -765,17 +782,16 @@ async def kb_search(q: str = "", mode: str = "search", min_confidence: float = 0
 
 
 @app.get("/api/kb/ask")
-async def kb_ask(q: str = ""):
+async def kb_ask(q: str = "") -> dict[str, Any]:
+    """AI 问答 — 降级链: 豆包 RAG → ChromaDB 搜索 + 结果拼接"""
     if not q:
         return {"error": "请输入问题"}
 
     # 降级链: 豆包 RAG → ChromaDB + 简单拼接 → 结束
     import contextlib
     import io
-    from pathlib import Path
 
     km = str(paths.kb_models)
-    km_dir = str(Path(km).parent)
 
     # 第一优先：尝试豆包 RAG
     try:
@@ -788,8 +804,8 @@ async def kb_ask(q: str = ""):
         output = f.getvalue().strip()
         if output and "❌" not in output:
             return {"query": q, "raw_output": output, "engine": "doubao_rag"}
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Doubao RAG ask failed, falling back: %s", e)
 
     # 第二优先：降级到 ChromaDB 搜索 + 简单结果拼接
     try:
@@ -802,19 +818,19 @@ async def kb_ask(q: str = ""):
                 lines.append(f"{i+1}. [[{r['title']}]] — {preview}")
             answer = "\\n".join(lines)
             return {"query": q, "raw_output": answer, "engine": "chromadb_fallback"}
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("ChromaDB fallback ask failed: %s", e)
 
     return {"query": q, "raw_output": "(无匹配结果)", "engine": "none"}
 
 
 @app.post("/api/kb/search/feedback")
-async def kb_search_feedback(request: Request):
+async def kb_search_feedback(request: Request) -> dict[str, Any]:
     """Receive search result feedback (placeholder for future learning)."""
     body = await request.json()
     title = body.get("title", "")
     helpful = body.get("helpful", False)
-    print(f"[搜索反馈] title={title}, helpful={helpful}")
+    logger.info("[搜索反馈] title=%s, helpful=%s", title, helpful)
     return {"ok": True}
 
 
@@ -822,7 +838,8 @@ async def kb_search_feedback(request: Request):
 
 
 @app.get("/api/kb/pending")
-async def kb_pending():
+async def kb_pending() -> dict[str, Any]:
+    """列出 inbox 目录中待编译的文件"""
     inbox_dir = paths.inbox_dir
     files = []
     if inbox_dir.exists():
@@ -840,7 +857,8 @@ async def kb_pending():
 
 
 @app.post("/api/kb/pending/delete")
-async def kb_pending_delete(request: Request):
+async def kb_pending_delete(request: Request) -> dict[str, Any]:
+    """删除指定待处理文件（从 inbox 和 raw 目录移除）"""
     body = await request.json()
     filename = body.get("filename", "").strip()
     if not filename:
@@ -860,26 +878,20 @@ async def kb_pending_delete(request: Request):
 
 
 @app.post("/api/kb/compile")
-async def kb_compile():
+async def kb_compile() -> dict[str, Any]:
+    """触发 doubao_manager.py 编译 inbox 中所有待处理文件"""
     doubao = paths.get("tools") / "doubao_manager.py"
     if not doubao.exists():
         return {"ok": False, "error": "doubao_manager.py 不存在"}
 
-    # 快速 LLM 健康检查，避免 LLM 不可用时挂起 300s
-    try:
-        from config.models import models as _models
+    # 校验编译模型配置完整性（不发起 HTTP 请求，避免无认证头导致误判）
+    from config.models import models as _models
 
-        _cfg = _models.get("compile")
-        if _cfg.get("api_key"):
-            import httpx
-
-            with httpx.Client(timeout=5) as _client:
-                _client.get(_cfg["base_url"])
-    except Exception:
-        # LLM 不可用，返回友好提示
+    _cfg = _models.get("compile")
+    if not _cfg.get("api_key") or not _cfg.get("base_url"):
         return {
             "ok": False,
-            "error": "LLM 编译模型暂不可用，请稍后重试（api_key / network error）",
+            "error": "LLM 编译模型未配置（api_key / base_url 缺失）",
             "converted": 0,
         }
 
@@ -897,7 +909,8 @@ async def kb_compile():
             converted = int(output.split("CONVERTED:")[-1].split("\n")[0])
         # 编译完成后刷新语义图谱
         if result.returncode == 0 and converted > 0:
-            semantic.refresh()
+            if ensure_semantic():
+                semantic.refresh()
         return {
             "ok": result.returncode == 0,
             "converted": converted,
@@ -914,7 +927,8 @@ async def kb_compile():
 
 
 @app.post("/upload")
-async def upload(files: list[UploadFile] = File(...)):
+async def upload(files: list[UploadFile] = File(...)) -> dict[str, Any]:
+    """上传文件到知识库：.md 直接发布到 wiki，其他格式送入 inbox 待编译"""
     raw_dir = paths.raw_dir
     inbox_dir = paths.inbox_dir
     wiki_dir = paths.wiki_dir
@@ -936,7 +950,7 @@ async def upload(files: list[UploadFile] = File(...)):
         # 存入统一存储（哈希去重）
         from ingest.pipelines import store_file
 
-        meta = store_file(raw_target, store_dir)
+        _ = store_file(raw_target, store_dir)
         uploaded_stored += 1
         if ext == ".md":
             wiki_target = wiki_dir / f.filename
@@ -965,12 +979,14 @@ async def upload(files: list[UploadFile] = File(...)):
 
 
 @app.post("/compile")
-async def compile_check():
+async def compile_check() -> dict[str, Any]:
+    """已弃用的编译入口，保留用于向后兼容"""
     return {"ok": True, "count": 0, "pending": [], "note": "已弃用，请使用上传面板自动编译"}
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, Any]:
+    """健康检查端点"""
     return {"status": "ok"}
 
 
@@ -978,7 +994,7 @@ async def health():
 
 
 @app.get("/api/models")
-async def list_models():
+async def list_models() -> dict[str, Any]:
     """返回当前模型配置 + 可用提供商列表（隐藏 API key）"""
     import yaml
 
@@ -995,7 +1011,8 @@ async def list_models():
                 "model": cfg.get("model", ""),
                 "purpose": cfg.get("purpose", ""),
             }
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to read model config for %s: %s", role, e)
             current[role] = {"provider": "", "model": "", "purpose": ""}
 
     # 读取原始 YAML 获取 providers 列表
@@ -1018,15 +1035,24 @@ async def list_models():
                         "models": p.get("models", {}),
                     }
                 )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to read model providers from YAML: %s", e)
 
     return {"current": current, "providers": providers}
 
 
+_ROLE_MODEL_KEYS = {
+    "reasoning": ["llm_reasoning", "llm", "compile"],
+    "embedding": ["embedding"],
+    "vision": ["vision"],
+    "compile": ["compile", "llm"],
+    "query": ["llm_fast", "llm", "compile"],
+}
+
+
 @app.post("/api/models/switch")
-async def switch_provider(req: Request):
-    """切换到指定提供商。需要提供 provider_id 和 api_key。"""
+async def switch_provider(req: Request) -> dict[str, Any]:
+    """切换到指定提供商。role 指定仅切换该角色（reasoning/embedding/vision），不传则切换全部。"""
     import yaml
 
     from config.paths import paths as _paths
@@ -1034,6 +1060,7 @@ async def switch_provider(req: Request):
     body = await req.json()
     provider_id = body.get("provider_id", "").strip()
     api_key = body.get("api_key", "").strip()
+    role = body.get("role", "").strip()
     if not provider_id:
         return {"ok": False, "error": "请指定提供商"}
 
@@ -1056,7 +1083,7 @@ async def switch_provider(req: Request):
     if not target:
         return {"ok": False, "error": f"未找到提供商: {provider_id}"}
 
-    # 更新 API 配置
+    # 更新 API 配置（全局）
     base_url = body.get("base_url", "").strip()
     endpoint = body.get("endpoint", "").strip()
     if base_url:
@@ -1068,45 +1095,59 @@ async def switch_provider(req: Request):
     if api_key:
         raw["api"]["api_key"] = api_key
 
-    # 模型映射表：将提供商的模型键映射到活跃角色
     pm = target.get("models", {}) or {}
-    active_roles = ["compile", "query", "reasoning", "embedding", "vision"]
 
-    # 映射逻辑
-    role_model_map = {}
-    if "llm" in pm:
-        role_model_map["compile"] = pm["llm"]
-        role_model_map["query"] = pm.get("llm_fast", pm["llm"])
-        role_model_map["reasoning"] = pm.get("llm_reasoning", pm["llm"])
-    elif "compile" in pm:
-        role_model_map["compile"] = pm["compile"]
+    def _resolve_model(role_name: str) -> str | None:
+        for key in _ROLE_MODEL_KEYS.get(role_name, []):
+            if key in pm:
+                return pm[key]
+        return None
 
-    if "embedding" in pm:
-        role_model_map["embedding"] = pm["embedding"]
-    if "vision" in pm:
-        role_model_map["vision"] = pm["vision"]
+    if role:
+        # 单角色切换
+        if role not in raw["models"]:
+            return {"ok": False, "error": f"未知角色: {role}"}
+        model_id = _resolve_model(role)
+        if not model_id:
+            return {"ok": False, "error": f"提供商 {target.get('name')} 未提供 {role} 模型"}
+        raw["models"][role]["provider"] = provider_id
+        raw["models"][role]["model"] = model_id
+        changed = [role]
+    else:
+        # 全量切换（向后兼容）
+        active_roles = ["compile", "query", "reasoning", "embedding", "vision"]
+        role_model_map = {}
+        for r in active_roles:
+            m = _resolve_model(r)
+            if m:
+                role_model_map[r] = m
+        for r in active_roles:
+            if r in raw["models"] and r in role_model_map:
+                raw["models"][r]["provider"] = provider_id
+                raw["models"][r]["model"] = role_model_map[r]
+        changed = list(role_model_map.keys())
 
-    # 更新 models 段
-    for role in active_roles:
-        if role in raw["models"] and role in role_model_map:
-            raw["models"][role]["provider"] = provider_id
-            raw["models"][role]["model"] = role_model_map[role]
-
-    # 写回 YAML
+    # 写回 YAML（先备份）
     try:
+        backup = yaml_path.with_suffix(".yaml.bak")
+        if yaml_path.exists():
+            import shutil
+
+            shutil.copy2(yaml_path, backup)
         with open(yaml_path, "w") as f:
             yaml.dump(raw, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
     except Exception as e:
         return {"ok": False, "error": f"写入配置失败: {e}"}
 
-    return {"ok": True, "message": f"已切换到 {target.get('name', provider_id)}"}
+    return {"ok": True, "message": f"已切换 {', '.join(changed)} 到 {target.get('name', provider_id)}"}
 
 
 connected_clients: list[WebSocket] = []
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
+async def websocket_endpoint(ws: WebSocket) -> None:
+    """WebSocket 端点：接受客户端连接，响应 ping/pong，广播事件"""
     await ws.accept()
     connected_clients.append(ws)
     logger.info(f"[WS] 客户端连接: {len(connected_clients)} 个")
@@ -1132,7 +1173,8 @@ async def _ws_broadcast(event: str, data: dict):
     for ws in connected_clients:
         try:
             await ws.send_text(payload)
-        except Exception:
+        except Exception as e:
+            logger.debug("WebSocket broadcast failed, marking dead: %s", e)
             dead.append(ws)
     for ws in dead:
         if ws in connected_clients:
@@ -1147,7 +1189,7 @@ register_ws_handlers(_ws_broadcast)
 
 
 @app.get("/api/kb/confidence")
-async def kb_confidence(file: str = ""):
+async def kb_confidence(file: str = "") -> dict[str, Any]:
     """Get confidence score for a single file or all files in the wiki."""
     wiki_dir = paths.wiki_dir
     if file:
@@ -1168,7 +1210,7 @@ async def kb_confidence(file: str = ""):
 
 
 @app.get("/api/kb/aging")
-async def kb_aging(min_score: float = 0, limit: int = 0, tier: str = ""):
+async def kb_aging(min_score: float = 0, limit: int = 0, tier: str = "") -> dict[str, Any]:
     """Get aging scores for all wiki articles.
 
     Args:
@@ -1185,7 +1227,7 @@ async def kb_aging(min_score: float = 0, limit: int = 0, tier: str = ""):
 
 
 @app.get("/api/kb/aging/report")
-async def kb_aging_report():
+async def kb_aging_report() -> dict[str, Any]:
     """Get aging statistics summary (tier distribution, counts)."""
     if aging_report is None:
         return {"error": "Aging module not available"}
@@ -1193,7 +1235,7 @@ async def kb_aging_report():
 
 
 @app.get("/api/kb/aging/review")
-async def kb_aging_review():
+async def kb_aging_review() -> dict[str, Any]:
     """List articles in notice/aging tiers needing review."""
     if suggest_review is None:
         return {"error": "Aging module not available"}
@@ -1201,7 +1243,7 @@ async def kb_aging_review():
 
 
 @app.get("/api/kb/aging/archive-suggestions")
-async def kb_aging_archive(min_score: float = 0.7):
+async def kb_aging_archive(min_score: float = 0.7) -> dict[str, Any]:
     """List stale articles as archive candidates."""
     if suggest_archive is None:
         return {"error": "Aging module not available"}
@@ -1209,7 +1251,7 @@ async def kb_aging_archive(min_score: float = 0.7):
 
 
 @app.get("/api/kb/aging/events")
-async def kb_aging_events(limit: int = 50):
+async def kb_aging_events(limit: int = 50) -> dict[str, Any]:
     """Read recent aging event log entries."""
     if get_aging_events is None:
         return {"error": "Aging module not available"}
@@ -1217,7 +1259,7 @@ async def kb_aging_events(limit: int = 50):
 
 
 @app.post("/api/kb/aging/apply")
-async def kb_aging_apply(file: str = ""):
+async def kb_aging_apply(file: str = "") -> dict[str, Any]:
     """Apply aging flags to frontmatter.
 
     If file is specified, flag only that file.
@@ -1243,7 +1285,7 @@ HEARTBEAT_TIMEOUT = 60  # 秒，超过此时间未心跳视为离线
 
 
 @app.post("/api/agents/register")
-async def agent_register(request: Request):
+async def agent_register(request: Request) -> dict[str, Any]:
     """Agent 注册。外部 Agent 调用此接口告知系统自己的存在。
 
     Body:
@@ -1270,7 +1312,7 @@ async def agent_register(request: Request):
 
 
 @app.post("/api/agents/heartbeat")
-async def agent_heartbeat(request: Request):
+async def agent_heartbeat(request: Request) -> dict[str, Any]:
     """Agent 心跳。定期调用以维持在线状态。
 
     Body:
@@ -1295,7 +1337,7 @@ async def agent_heartbeat(request: Request):
 
 
 @app.get("/api/agents")
-async def agent_list():
+async def agent_list() -> dict[str, Any]:
     """返回所有已注册 Agent 及其在线状态。
 
     在线判定：心跳时间不超过 HEARTBEAT_TIMEOUT 秒。
@@ -1320,7 +1362,7 @@ async def agent_list():
 
 
 @app.get("/api/agents/{agent_id}/profile")
-async def agent_get_profile(agent_id: str):
+async def agent_get_profile(agent_id: str) -> dict[str, Any]:
     """获取 Agent 的 profile.yaml 内容。"""
     if _agent_file_mgr is None:
         return {"error": "Agent file manager not available"}
@@ -1331,7 +1373,7 @@ async def agent_get_profile(agent_id: str):
 
 
 @app.put("/api/agents/{agent_id}/profile")
-async def agent_update_profile(agent_id: str, request: Request):
+async def agent_update_profile(agent_id: str, request: Request) -> dict[str, Any]:
     """更新 Agent profile（合并到 profile.yaml）。"""
     if _agent_file_mgr is None:
         return {"error": "Agent file manager not available"}
@@ -1343,7 +1385,7 @@ async def agent_update_profile(agent_id: str, request: Request):
 
 
 @app.get("/api/agents/{agent_id}/personality")
-async def agent_get_personality(agent_id: str):
+async def agent_get_personality(agent_id: str) -> dict[str, Any]:
     """获取 Agent 的 personality.md 内容。"""
     if _agent_file_mgr is None:
         return {"error": "Agent file manager not available"}
@@ -1354,7 +1396,7 @@ async def agent_get_personality(agent_id: str):
 
 
 @app.put("/api/agents/{agent_id}/personality")
-async def agent_update_personality(agent_id: str, request: Request):
+async def agent_update_personality(agent_id: str, request: Request) -> dict[str, Any]:
     """更新 Agent 的 personality.md。"""
     if _agent_file_mgr is None:
         return {"error": "Agent file manager not available"}
@@ -1367,7 +1409,7 @@ async def agent_update_personality(agent_id: str, request: Request):
 
 
 @app.get("/api/agents/{agent_id}/sessions")
-async def agent_list_sessions(agent_id: str):
+async def agent_list_sessions(agent_id: str) -> dict[str, Any]:
     """列出 Agent 的所有会话日期。"""
     if _agent_file_mgr is None:
         return {"error": "Agent file manager not available"}
@@ -1376,7 +1418,7 @@ async def agent_list_sessions(agent_id: str):
 
 
 @app.get("/api/agents/{agent_id}/sessions/{date}")
-async def agent_get_session(agent_id: str, date: str):
+async def agent_get_session(agent_id: str, date: str) -> dict[str, Any]:
     """获取某日的完整会话日志（YYYY-MM-DD）。"""
     if _agent_file_mgr is None:
         return {"error": "Agent file manager not available"}
@@ -1390,7 +1432,7 @@ async def agent_get_session(agent_id: str, date: str):
 
 
 @app.post("/api/kb/memory")
-async def memory_save(request: Request):
+async def memory_save(request: Request) -> dict[str, Any]:
     """保存一条跨会话记忆。
 
     Body:
@@ -1438,7 +1480,7 @@ async def memory_save(request: Request):
 
 
 @app.get("/api/kb/memory")
-async def memory_recall(q: str = "", agent: str = "", limit: int = 10, types: str = ""):
+async def memory_recall(q: str = "", agent: str = "", limit: int = 10, types: str = "") -> dict[str, Any]:
     """语义检索跨会话记忆。
 
     Args:
@@ -1463,7 +1505,7 @@ async def memory_recall(q: str = "", agent: str = "", limit: int = 10, types: st
 
 
 @app.get("/api/kb/memory/sessions")
-async def memory_sessions(agent: str = "", limit: int = 50):
+async def memory_sessions(agent: str = "", limit: int = 50) -> dict[str, Any]:
     """列出所有 Agent 的跨会话记忆列表。
 
     Args:
@@ -1478,7 +1520,7 @@ async def memory_sessions(agent: str = "", limit: int = 50):
 
 
 @app.post("/api/kb/memory/summarize")
-async def memory_summarize(request: Request):
+async def memory_summarize(request: Request) -> dict[str, Any]:
     """将某次会话的记忆压缩为一条摘要。
 
     Body:
@@ -1505,7 +1547,7 @@ async def memory_summarize(request: Request):
 # ── 入口 ──
 
 
-def main():
+def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Taichu KB Web UI (FastAPI)")
@@ -1514,7 +1556,7 @@ def main():
     args = parser.parse_args()
     print(f"太初知识宇宙 Web UI — http://localhost:{args.port}")
     print(f"  知识库: {paths.root}")
-    print(f"  API:    /api/stats /api/kb/graph /api/kb/search /api/kb/pending /api/kb/aging /api/kb/memory")
+    print("  API:    /api/stats /api/kb/graph /api/kb/search /api/kb/pending /api/kb/aging /api/kb/memory")
     uvicorn.run(app, host=args.bind, port=args.port, log_level="info")
 
 

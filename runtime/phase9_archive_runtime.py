@@ -1,5 +1,4 @@
-# runtime/phase9_archive_runtime.py
-# Phase 9 — Archive → Ingestion → Embedding → Graph → Multi-Agent → GBrain → GEP → Nebula UI 全链路
+"""Phase 9 归档运行时：Archive → 数据摄取 → 嵌入 → 图谱 → Multi-Agent → GBrain → GEP → Nebula UI 全链路"""
 
 import asyncio
 from pathlib import Path
@@ -17,12 +16,10 @@ from runtime.attention.emergent_ecosystem import EmergentCognitiveEcosystem
 from runtime.attention.global_attention_field import GlobalAttentionField
 from runtime.attention.hotspot_clustering import HotspotClustering
 from runtime.capabilities.capability import Capability
-from runtime.capabilities.capability_matcher import CapabilityMatcher
 from runtime.capabilities.capability_registry import CapabilityRegistry
 from runtime.evolution.evolution_engine import EvolutionEngine
 from runtime.evolution.genome import Genome
 from runtime.gbrain.semantic_intelligence import GBrain
-from runtime.ingestion.data_ingest import DataIngest
 
 # ---------------- Ingestion ----------------
 from runtime.ingestion.semantic_embedding import SemanticEmbedder
@@ -35,6 +32,7 @@ from runtime.scheduler.adaptive_scheduler import AdaptiveScheduler
 
 
 class SimpleGraph:
+    """简易内存图谱，存储文件节点及其嵌入向量"""
 
     def __init__(self):
         self.nodes = {}
@@ -48,6 +46,7 @@ class SimpleGraph:
 
 
 class FileSource:
+    """文件数据源，从磁盘路径循环读取内容"""
 
     def __init__(self, paths):
         self.paths = paths
@@ -226,7 +225,7 @@ async def phase9_archive_main(file_sources):
         tick += 1
         await asyncio.sleep(0.5)
 
-    print(f"\n=== Final State ===")
+    print("\n=== Final State ===")
     print(f"Archives stored: {len(archive.list_archives())}")
     print(f"Graph nodes: {len(graph.all_nodes())}")
     print(f"Evolution generations: {evolution_engine.generation}")

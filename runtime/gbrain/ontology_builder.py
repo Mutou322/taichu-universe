@@ -1,11 +1,12 @@
-# runtime/gbrain/ontology_builder.py
+"""本体构建器 — 基于标签聚类自动生成核心/次级节点的层级结构"""
 
 from collections import defaultdict
 
 
 class OntologyBuilder:
+    """按 tag 聚类节点，区分 core（最高引力）与 secondary 节点"""
 
-    def build(self, graph_nodes):
+    def build(self, graph_nodes: dict) -> dict:
         """
         基于 cluster + relation + gravity 自动生成层级。
 

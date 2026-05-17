@@ -4,13 +4,10 @@ MemoryRuntime 的 store/delete 操作触发后，自动 emit 事件。
 其他模块（WebSocket、Graph、Logger）通过订阅事件获得通知。
 """
 
-from pathlib import Path
-
-from config.bootstrap import *
 from runtime.events.bus import bus
 
 
-def on_memory_store(doc_id: str, content: str, metadata: dict | None = None):
+def on_memory_store(doc_id: str, content: str, metadata: dict | None = None) -> None:
     """MemoryRuntime 存储后自动触发"""
     bus.emit_async(
         "memory:stored",
@@ -22,7 +19,7 @@ def on_memory_store(doc_id: str, content: str, metadata: dict | None = None):
     )
 
 
-def on_memory_delete(doc_id: str):
+def on_memory_delete(doc_id: str) -> None:
     """MemoryRuntime 删除后自动触发"""
     bus.emit_async(
         "memory:deleted",

@@ -1,6 +1,4 @@
-# runtime/gbrain/gravity_metrics.py
-
-import asyncio
+"""引力指标 — 将语义引力更新推送到 metrics_bus 和 EventBus"""
 
 from runtime.metrics.metrics_bus import metrics_bus
 from runtime.metrics.models import MetricEvent
@@ -20,7 +18,7 @@ async def emit_gravity_metrics(gravity_updates: dict):
         tags={"node_count": len(gravity_updates)},
     )
 
-    await metrics_bus.emit(event.name, event)
+    await metrics_bus.emit_async(event.name, event)
 
     # 同时推送到 EventBus（用于 WebSocket 广播）
     from runtime.events.bus import bus

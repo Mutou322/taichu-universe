@@ -1,4 +1,4 @@
-# runtime/gbrain/semantic_types.py
+"""语义类型定义 — SemanticNode 和 SemanticRelation 数据类"""
 
 from dataclasses import dataclass, field
 from typing import Dict, List

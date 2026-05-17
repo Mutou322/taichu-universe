@@ -30,8 +30,10 @@ def _load_config():
             _base_url = vision_cfg.get("base_url", "https://ark.cn-beijing.volces.com/api/v3")
             _model = vision_cfg.get("model", "doubao-vision-pro")
             return
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+
+        logging.getLogger(__name__).debug("加载 Hermes vision 配置失败: %s", e)
 
     _api_key = os.environ.get("DOUBAO_API_KEY", "")
     _base_url = os.environ.get("DOUBAO_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")

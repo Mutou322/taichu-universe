@@ -7,14 +7,12 @@
   python3 config/path_cli.py get storage.chroma
 """
 
-from pathlib import Path
+import sys
 
-from paths import paths
-
-from config.bootstrap import *
+from config.paths import paths
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 3 or sys.argv[1] != "get":
         print("用法: path_cli.py get <key.key.key>", file=sys.stderr)
         sys.exit(1)

@@ -1,9 +1,9 @@
-# runtime/retrieval/query_parser.py
+"""查询解析器 — 将自然语言查询解析为结构化的 topic/relation/concept/intent 字典"""
+
 import re
-from typing import Dict
 
 
-def parse_query(query: str) -> Dict:
+def parse_query(query: str) -> dict:
     """
     把用户输入解析成标准化 query dict。
 
@@ -27,7 +27,7 @@ def parse_query(query: str) -> Dict:
         result["intent"] = "explanation"
     elif "如何" in query or "怎么" in query:
         result["relation"] = "method"
-        parts = re.split(r"[如何怎么]", query, maxsplit=1)
+        parts = re.split(r"如何|怎么", query, maxsplit=1)
         result["topic"] = parts[0].strip()
         result["concept"] = parts[1].strip() if len(parts) > 1 else ""
         result["intent"] = "instruction"

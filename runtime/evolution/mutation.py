@@ -1,3 +1,5 @@
+"""Genome 随机变异器。"""
+
 # runtime/evolution/mutation.py
 
 import random
@@ -6,8 +8,13 @@ from runtime.evolution.genome import Genome
 
 
 class GenomeMutator:
+    """按 mutation_rate 对 genome 各参数随机扰动变异。"""
 
-    def mutate(self, genome: Genome, mutation_rate: float = 0.3):
+    DEFAULT_MUTATION_RATE = 0.3
+    RERANK_WEIGHT_DELTA = 0.1
+    MEMORY_DECAY_DELTA = 0.05
+
+    def mutate(self, genome: Genome, mutation_rate: float = DEFAULT_MUTATION_RATE) -> Genome:
         """
         随机变异 genome 参数。
 
@@ -23,13 +30,15 @@ class GenomeMutator:
 
         if random.random() < mutation_rate:
             new_genome.rerank_weight = min(
-                max(0.0, new_genome.rerank_weight + random.uniform(-0.1, 0.1)),
+                max(
+                    0.0, new_genome.rerank_weight + random.uniform(-self.RERANK_WEIGHT_DELTA, self.RERANK_WEIGHT_DELTA)
+                ),
                 1.0,
             )
 
         if random.random() < mutation_rate:
             new_genome.memory_decay = min(
-                max(0.5, new_genome.memory_decay + random.uniform(-0.05, 0.05)),
+                max(0.5, new_genome.memory_decay + random.uniform(-self.MEMORY_DECAY_DELTA, self.MEMORY_DECAY_DELTA)),
                 1.0,
             )
 

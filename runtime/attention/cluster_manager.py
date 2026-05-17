@@ -1,20 +1,23 @@
-# runtime/attention/cluster_manager.py
+"""KMeans-based clustering of agents and workflow nodes."""
+
+from typing import Any
 
 import numpy as np
 from sklearn.cluster import KMeans
 
 
 class ClusterManager:
+    """Clusters agents by attention vectors and nodes by attention field values."""
 
-    def __init__(self, n_clusters=3):
+    def __init__(self, n_clusters: int = 3) -> None:
 
         self.n_clusters = n_clusters
 
-        self.agent_clusters = {}
+        self.agent_clusters: dict[str, int] = {}
 
-        self.node_clusters = {}
+        self.node_clusters: dict[str, int] = {}
 
-    def cluster_agents(self, agents):
+    def cluster_agents(self, agents: list[Any]) -> dict[str, int]:
 
         if not agents:
             return self.agent_clusters
@@ -62,7 +65,7 @@ class ClusterManager:
 
         return self.agent_clusters
 
-    def cluster_nodes(self, field):
+    def cluster_nodes(self, field: Any) -> dict[str, int]:
 
         nodes = list(field.node_attention.keys())
 

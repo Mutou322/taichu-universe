@@ -1,16 +1,19 @@
-# runtime/attention/attention_evaluator.py
+"""Evaluates agent-node attention weights for workflow routing."""
+
+from typing import Any
 
 from runtime.attention.attention_map import AttentionMap
 
 
 class AttentionEvaluator:
+    """Computes attention weights between agents and workflow nodes using affinity, gravity, and RL feedback."""
 
-    def __init__(self, semantic_gravity_func, rl_module=None):
+    def __init__(self, semantic_gravity_func: Any, rl_module: Any = None) -> None:
 
         self.semantic_gravity_func = semantic_gravity_func
         self.rl_module = rl_module
 
-    def evaluate(self, workflow, agents, experience_feedback=None):
+    def evaluate(self, workflow: Any, agents: list[Any], experience_feedback: Any = None) -> AttentionMap:
 
         am = AttentionMap()
 

@@ -1,14 +1,17 @@
-# runtime/attention/attention_metrics.py
+"""Emits attention-related metrics to the metrics bus and history."""
+
+from typing import Any
 
 
 class AttentionMetrics:
+    """Collects attention snapshots and emits them to the metrics bus."""
 
-    def __init__(self, metrics_bus, attention_history):
+    def __init__(self, metrics_bus: Any, attention_history: Any) -> None:
 
         self.metrics_bus = metrics_bus
         self.attention_history = attention_history
 
-    async def emit(self, attention_map):
+    async def emit(self, attention_map: Any) -> None:
 
         self.attention_history.add_snapshot(attention_map)
 

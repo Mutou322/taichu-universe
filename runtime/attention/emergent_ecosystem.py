@@ -1,12 +1,20 @@
-# runtime/attention/emergent_ecosystem.py
+"""Emergent cognitive ecosystem orchestrating clusters, hotspots, and metrics."""
 
-import asyncio
 from collections import defaultdict
+from typing import Any
 
 
 class EmergentCognitiveEcosystem:
+    """Orchestrates clustering, semantic gravity, and metrics for the emergent attention ecosystem."""
 
-    def __init__(self, cluster_manager, attention_field, hotspot_clustering, metrics_bus, registry=None):
+    def __init__(
+        self,
+        cluster_manager: Any,
+        attention_field: Any,
+        hotspot_clustering: Any,
+        metrics_bus: Any,
+        registry: Any = None,
+    ) -> None:
 
         self.cluster_manager = cluster_manager
         self.attention_field = attention_field
@@ -18,7 +26,7 @@ class EmergentCognitiveEcosystem:
 
         self.agent_influence = defaultdict(float)
 
-    def select_agent(self, node):
+    def select_agent(self, node: Any) -> Any | None:
         """Phase 9: 为节点选择最合适的 agent"""
         if self.registry is None:
             return None
@@ -28,7 +36,7 @@ class EmergentCognitiveEcosystem:
         # 简单策略：选 load 最低的 agent
         return min(agents, key=lambda a: getattr(a, "load", 0))
 
-    async def update(self, agents):
+    async def update(self, agents: list[Any]) -> None:
 
         # 1. Update clusters
         self.cluster_manager.cluster_agents(agents)
@@ -48,7 +56,7 @@ class EmergentCognitiveEcosystem:
         # 5. Emit metrics to Nebula UI
         await self.emit_metrics()
 
-    def compute_semantic_gravity(self, agents):
+    def compute_semantic_gravity(self, agents: list[Any]) -> None:
 
         for node_id, att in self.attention_field.node_attention.items():
 
@@ -65,7 +73,7 @@ class EmergentCognitiveEcosystem:
 
             self.semantic_gravity[node_id] = att + cluster_bonus
 
-    def reinforce_clusters(self, agents):
+    def reinforce_clusters(self, agents: list[Any]) -> None:
 
         for agent in agents:
 
@@ -81,7 +89,7 @@ class EmergentCognitiveEcosystem:
 
                 self.agent_influence[agent.agent_id] += influence
 
-    async def emit_metrics(self):
+    async def emit_metrics(self) -> None:
 
         await self.metrics_bus.emit_async(
             "ecosystem",

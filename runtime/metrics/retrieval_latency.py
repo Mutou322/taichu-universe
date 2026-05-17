@@ -1,10 +1,13 @@
+"""检索延迟数据模型，记录一次检索各阶段的耗时与结果统计"""
+
 import time
 from dataclasses import dataclass, field
-from typing import Dict
 
 
 @dataclass
 class RetrievalMetrics:
+    """单次检索的性能指标，覆盖解析、向量、图谱、重排序等各阶段"""
+
     query: str
 
     parse_ms: float = 0
@@ -20,5 +23,5 @@ class RetrievalMetrics:
 
     created_at: float = field(default_factory=time.time)
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return self.__dict__
