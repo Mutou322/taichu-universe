@@ -2,10 +2,10 @@
 
 > AI Runtime 原型 · 自演化知识图谱 · Canvas 2D/3D 星云可视化
 > License: MIT
->
-> 📖 完整参考手册 → [`docs/REFERENCE.md`](docs/REFERENCE.md)
 
 ---
+
+
 
 ## 架构 Architecture
 
@@ -87,10 +87,6 @@ taichu/
 │   ├── memory/schema.py              #   记忆 Schema
 │   └── websocket/events.py           #   WebSocket 事件类型
 │
-├── tests/                            # 测试
-├── docs/                             # 文档
-├── benchmarks/                       # 性能基准测试
-└── _deprecated/                      # 废弃代码（Phase 5-8）
 ```
 
 ---
@@ -113,7 +109,7 @@ Agent 文件：`GET/PUT /api/agents/{id}/profile` · `GET/PUT /api/agents/{id}/p
 写入：`POST /upload`（上传文件）· `POST /api/kb/compile`（编译）
 系统：`GET /health` · `GET /api/stats` · `GET /api/metrics` · `GET/POST /api/models[/switch]` · `WS /ws`
 
-详细端点说明见 [`KB_ACCESS_PROTOCOL.md`](KB_ACCESS_PROTOCOL.md) 或 [`docs/REFERENCE.md`](docs/REFERENCE.md#3-完整-api-参考)。
+详细端点说明见 [`KB_ACCESS_PROTOCOL.md`](KB_ACCESS_PROTOCOL.md)。
 
 ### 模型管理
 - 8 个内置 Provider：Ollama、火山引擎、阿里云、百度千帆、智谱、DeepSeek、Moonshot、SiliconFlow、OpenRouter、302.AI
@@ -177,8 +173,6 @@ python3 runtime/phase9_main.py
 | 文档 | 用途 |
 |------|------|
 | `KB_ACCESS_PROTOCOL.md` | 多 Agent 使用协议（外部 Agent/工具 必读）|
-| `docs/REFERENCE.md` | 完整参考手册（架构/API/配置/开发） |
-| `docs/ARCHITECTURE.md` | 五层架构设计文档 |
 | `knowledge/wiki/index.md` | 知识库索引 |
 | `knowledge/wiki/` | 全部知识词条 |
 | `config/paths.yaml` | 统一路径配置（单源真理） |
