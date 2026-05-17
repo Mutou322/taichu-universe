@@ -75,7 +75,7 @@ taichu/
 │
 ├── ingest/pipelines/                 # 文件处理管道
 ├── tools/                            # 命令行工具集
-│   ├── doubao_manager.py             #   豆包 LLM 管理/搜索/编译
+│   ├── llm_manager.py                #   LLM 管理/搜索/编译
 │   ├── build_chromadb_index.py       #   构建/验证向量索引
 │   ├── compile_openviking_archive.py #   归档编译器
 │   ├── scripts/                      #   Wiki frontmatter 批量迁移等

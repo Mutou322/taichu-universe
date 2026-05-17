@@ -146,7 +146,7 @@ Ollama、火山引擎、阿里云、百度千帆、智谱、DeepSeek、Moonshot�
 ### 常用运维命令
 ```bash
 python3 clients/web/server.py 8765     # 启动服务
-python3 tools/doubao_manager.py compile # 编译待处理文件
-python3 tools/doubao_manager.py index   # 重建向量索引
+python3 tools/llm_manager.py compile # 编译待处理文件
+python3 tools/llm_manager.py index   # 重建向量索引
 python3 runtime/phase9_main.py          # Phase 9 主循环
 ```

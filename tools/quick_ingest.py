@@ -28,7 +28,7 @@ from config.paths import paths  # noqa: E402
 SUPPORTED: set[str] = {
     # markdown — 直接复制到 wiki
     ".md",
-    # 文档格式 — 送 inbox → doubao LLM 编译
+    # 文档格式 — 送 inbox → LLM 编译
     ".pdf",
     ".docx",
     ".pptx",
@@ -53,7 +53,7 @@ SUPPORTED: set[str] = {
     ".toml",
 }
 
-DOUBAO_PATH = _TAICHU_HOME / "tools" / "doubao_manager.py"
+LLM_MANAGER_PATH = _TAICHU_HOME / "tools" / "llm_manager.py"
 POLL_INTERVAL = 5  # watch 模式轮询间隔（秒）
 COMPILE_TIMEOUT = 300  # 编译超时（秒）
 
@@ -76,20 +76,20 @@ def _expand_globs(patterns: list[str]) -> list[Path]:
     return files
 
 
-def _run_doubao_manager() -> tuple[bool, str]:
-    """调用 doubao_manager.py 编译 inbox 中的全部文件。
+def _run_llm_manager() -> tuple[bool, str]:
+    """调用 llm_manager.py 编译 inbox 中的全部文件。
 
     Returns:
         (ok, output_text)
     """
-    if not DOUBAO_PATH.exists():
-        msg = "doubao_manager.py 未找到，请检查环境"
+    if not LLM_MANAGER_PATH.exists():
+        msg = "llm_manager.py 未找到，请检查环境"
         print(f"✗ {msg}")
         return False, msg
 
     try:
         result = subprocess.run(
-            [sys.executable, str(DOUBAO_PATH)],
+            [sys.executable, str(LLM_MANAGER_PATH)],
             capture_output=True,
             text=True,
             timeout=COMPILE_TIMEOUT,
@@ -151,9 +151,9 @@ def process_files(file_paths: list[Path]) -> int:
     if non_md_files:
         names = ", ".join(f.name for f in non_md_files)
         print(f"放入 inbox: {names}")
-        ok, output = _run_doubao_manager()
+        ok, output = _run_llm_manager()
         if ok:
-            # 显示 doubao_manager 的编译日志
+            # 显示 llm_manager 的编译日志
             if output:
                 for line in output.splitlines():
                     print(f"  {line}")
@@ -192,7 +192,7 @@ def watch_loop() -> int:
             if new_files:
                 names = ", ".join(f.name for f in new_files)
                 print(f"\n发现新文件: {names}")
-                ok, output = _run_doubao_manager()
+                ok, output = _run_llm_manager()
                 if ok:
                     if output:
                         for line in output.splitlines():

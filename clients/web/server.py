@@ -879,10 +879,10 @@ async def kb_pending_delete(request: Request) -> dict[str, Any]:
 
 @app.post("/api/kb/compile")
 async def kb_compile() -> dict[str, Any]:
-    """触发 doubao_manager.py 编译 inbox 中所有待处理文件"""
-    doubao = paths.get("tools") / "doubao_manager.py"
-    if not doubao.exists():
-        return {"ok": False, "error": "doubao_manager.py 不存在"}
+    """触发 llm_manager.py 编译 inbox 中所有待处理文件"""
+    llm_mgr = paths.get("tools") / "llm_manager.py"
+    if not llm_mgr.exists():
+        return {"ok": False, "error": "llm_manager.py 不存在"}
 
     # 校验编译模型配置完整性（不发起 HTTP 请求，避免无认证头导致误判）
     from config.models import models as _models
@@ -897,7 +897,7 @@ async def kb_compile() -> dict[str, Any]:
 
     try:
         result = subprocess.run(
-            [sys.executable, str(doubao)],
+            [sys.executable, str(llm_mgr)],
             capture_output=True,
             text=True,
             timeout=300,

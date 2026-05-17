@@ -1,4 +1,4 @@
-"""doubao_manager — 知识库文件扫描与编译入口（豆包 LLM 驱动）
+"""llm_manager — 知识库文件扫描与编译入口（LLM 驱动）
 
 负责:
   1. 扫描 inbox/ 目录发现新文件
