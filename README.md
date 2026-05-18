@@ -177,7 +177,7 @@ python3 runtime/phase9_main.py
 | `knowledge/wiki/` | 全部知识词条 |
 | `config/paths.yaml` | 统一路径配置（单源真理） |
 | `config/models.yaml` | 模型/Provider 配置 |
-| `knowledge/references/` | 第三方参考代码/下载文件（不纳入 git） |
+| `knowledge/references/` | 文件（不纳入 git） |
 
 ---
 
